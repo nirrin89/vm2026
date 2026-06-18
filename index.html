@@ -182,9 +182,10 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 
 <div class="controls">
   <div class="tabs">
-    <button class="tab active" data-f="all">Alla</button>
-    <button class="tab" data-f="yle">Endast YLE</button>
+    <button class="tab active" data-f="upcoming">Kommande</button>
+    <button class="tab" data-f="yle">YLE</button>
     <button class="tab" data-f="today">Idag</button>
+    <button class="tab" data-f="all">Alla</button>
     <button class="tab" data-f="grupper">Grupper</button>
   </div>
   <div class="legend" id="legend"><span class="yle-key">yle</span> = sänds på YLE TV2 / Yle Arenan</div>
@@ -367,12 +368,13 @@ function updateStamp(mode){
   else el.innerHTML = `<span class="live-dot" style="background:#2ca05a;"></span>live · uppdaterad ${stamp}`;
 }
 
-let F = "all";
+let F = "upcoming";
 
 function passes(m){
-  if(F==="all") return true;
-  if(F==="yle") return m.b==="YLE";
+  if(F==="all") return true;                              // full archive incl. past
   if(F==="today") return m.date===TODAY;
+  if(F==="yle") return m.b==="YLE" && m.date>=YESTERDAY;  // upcoming YLE games
+  return m.date>=YESTERDAY;                               // "Kommande" — yesterday onwards
 }
 
 function timeCell(t){
