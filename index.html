@@ -63,7 +63,7 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .sub-date{font-size:11px;color:var(--faint);}
 .sub{font-size:12px;color:var(--muted);margin:0 0 28px;}
 .controls{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
-.tabs{display:flex;gap:4px;}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;}
 .tab{
   font-size:12px;
   padding:5px 12px;
@@ -153,6 +153,20 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .live-cell{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
 .live-cell .live-score{font-variant-numeric:tabular-nums;font-weight:500;font-size:14px;color:var(--today-accent);}
 .footnote{font-size:10px;color:var(--faint);margin-top:32px;line-height:1.6;}
+.groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px;margin-top:10px;}
+.gcard{border:0.5px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--surface);}
+.gcard h4{font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--text);margin:0 0 8px;}
+.gtable{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed;}
+.gtable th{font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--faint);font-weight:400;text-align:right;padding:2px 0;}
+.gtable th.lft{text-align:left;}
+.gtable td{padding:6px 0;font-variant-numeric:tabular-nums;text-align:right;color:var(--text);}
+.gtable td.team{text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:9px;}
+.gtable td:first-child{text-align:center;}
+.gtable tbody tr + tr td{border-top:0.5px solid var(--border);}
+.gtable col.c-pos{width:22px;} .gtable col.c-n{width:34px;} .gtable col.c-p{width:30px;}
+.gpos{color:var(--faint);}
+.gtable tr.adv .gpos{color:#2ca05a;font-weight:500;}
+.gpts{font-weight:500;}
 </style>
 </head>
 <body>
@@ -169,13 +183,14 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
     <button class="tab active" data-f="all">Alla</button>
     <button class="tab" data-f="yle">Endast YLE</button>
     <button class="tab" data-f="today">Idag</button>
+    <button class="tab" data-f="grupper">Grupper</button>
   </div>
-  <div class="legend"><span class="yle-key">yle</span> = sänds på YLE TV2 / Yle Arenan</div>
+  <div class="legend" id="legend"><span class="yle-key">yle</span> = sänds på YLE TV2 / Yle Arenan</div>
 </div>
 
 <div id="sched"></div>
 
-<p class="footnote">
+<p class="footnote" id="footnote">
 +1 = matchen börjar nästa dag finsk tid. YLE-dagar visas gratis på TV2 och Yle Arenan. MTV-dagar visas dagens två första matcher gratis på MTV3, resten på Katsomo+ Sport.
 </p>
 
@@ -422,6 +437,76 @@ function render(){
     const live = M.filter(m => getState(m).phase === "live").length;
     playedEl.textContent = live ? `${live} pågår · ${n} spelade` : `${n} spelade`;
   }
+  const legend = document.getElementById("legend");
+  const foot = document.getElementById("footnote");
+  if(F === "grupper"){
+    if(legend) legend.style.display = "none";
+    if(foot) foot.style.display = "none";
+    renderGroups();
+  } else {
+    if(legend) legend.style.display = "";
+    if(foot) foot.style.display = "";
+    renderSchedule();
+  }
+}
+
+// --- standings computed live from results ---
+function computeGroups(){
+  const G = {};
+  M.forEach(m => {
+    if(!/^[A-L]$/.test(m.g)) return;
+    G[m.g] = G[m.g] || {};
+    [m.h, m.a].forEach(t => { if(!G[m.g][t]) G[m.g][t] = {team:t, mp:0,w:0,d:0,l:0,gf:0,ga:0,pts:0}; });
+  });
+  M.forEach(m => {
+    if(!/^[A-L]$/.test(m.g)) return;
+    const st = getState(m);
+    if(st.phase !== "fin" || !st.score) return;
+    const p = st.score.split("–").map(s => parseInt(s,10));
+    if(p.length !== 2 || p.some(isNaN)) return;
+    const [hs, as_] = p;
+    const H = G[m.g][m.h], A = G[m.g][m.a];
+    if(!H || !A) return;
+    H.mp++; A.mp++; H.gf+=hs; H.ga+=as_; A.gf+=as_; A.ga+=hs;
+    if(hs>as_){ H.w++; A.l++; H.pts+=3; }
+    else if(hs<as_){ A.w++; H.l++; A.pts+=3; }
+    else { H.d++; A.d++; H.pts++; A.pts++; }
+  });
+  return G;
+}
+
+function renderGroups(){
+  const root = document.getElementById("sched");
+  const G = computeGroups();
+  const letters = Object.keys(G).sort();
+  if(!letters.length){ root.innerHTML = `<p style="font-size:13px;color:var(--muted);padding:1rem 0;">Inga grupper ännu.</p>`; return; }
+  const cards = letters.map(L => {
+    const teams = Object.values(G[L]).sort((a,b) =>
+      b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga) || b.gf-a.gf || a.team.localeCompare(b.team,'sv'));
+    const rows = teams.map((t,i) => {
+      const gd = t.gf - t.ga; const gdStr = (gd>0?"+":"") + gd;
+      return `<tr class="${i<2?'adv':''}">
+        <td><span class="gpos">${i+1}</span></td>
+        <td class="team">${t.team}</td>
+        <td>${t.mp}</td>
+        <td>${gdStr}</td>
+        <td class="gpts">${t.pts}</td>
+      </tr>`;
+    }).join("");
+    return `<div class="gcard">
+      <h4>Grupp ${L}</h4>
+      <table class="gtable">
+        <colgroup><col class="c-pos"><col><col class="c-n"><col class="c-n"><col class="c-p"></colgroup>
+        <thead><tr><th></th><th class="lft">Lag</th><th>S</th><th>MS</th><th>P</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join("");
+  root.innerHTML = `<div class="groups">${cards}</div>
+    <p class="footnote" style="margin-top:20px;">S = spelade, MS = målskillnad, P = poäng. <span style="color:#2ca05a;">●</span> topp 2 går vidare. Tabellen uppdateras när matcher spelats färdigt.</p>`;
+}
+
+function renderSchedule(){
   const root = document.getElementById("sched");
   const by = {};
   M.filter(passes).forEach(m=>{(by[m.date]=by[m.date]||[]).push(m);});
