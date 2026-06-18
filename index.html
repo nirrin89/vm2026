@@ -165,7 +165,9 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .gtable tbody tr + tr td{border-top:0.5px solid var(--border);}
 .gtable col.c-pos{width:22px;} .gtable col.c-n{width:34px;} .gtable col.c-p{width:30px;}
 .gpos{color:var(--faint);}
+.gtable tr.adv td{background:rgba(44,160,90,0.10);}
 .gtable tr.adv .gpos{color:#2ca05a;font-weight:500;}
+.gtable tr.playing td.team{color:var(--today-accent);}
 .gpts{font-weight:500;}
 </style>
 </head>
@@ -461,7 +463,7 @@ function computeGroups(){
   M.forEach(m => {
     if(!/^[A-L]$/.test(m.g)) return;
     const st = getState(m);
-    if(st.phase !== "fin" || !st.score) return;
+    if((st.phase !== "fin" && st.phase !== "live") || !st.score) return;  // live games count provisionally
     const p = st.score.split("–").map(s => parseInt(s,10));
     if(p.length !== 2 || p.some(isNaN)) return;
     const [hs, as_] = p;
@@ -480,14 +482,29 @@ function renderGroups(){
   const G = computeGroups();
   const letters = Object.keys(G).sort();
   if(!letters.length){ root.innerHTML = `<p style="font-size:13px;color:var(--muted);padding:1rem 0;">Inga grupper ännu.</p>`; return; }
+  const liveTeams = new Set();
+  M.forEach(m => { if(getState(m).phase === "live"){ liveTeams.add(m.h); liveTeams.add(m.a); } });
+
+  const sortFn = (a,b) => b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga) || b.gf-a.gf || a.team.localeCompare(b.team,'sv');
+  const sorted = {};
+  letters.forEach(L => sorted[L] = Object.values(G[L]).sort(sortFn));
+
+  // top 2 of each group + the 8 best third-placed teams advance to the round of 32
+  const thirds = letters.filter(L => sorted[L].length >= 3).map(L => ({L, t: sorted[L][2]}));
+  thirds.sort((a,b) => b.t.pts-a.t.pts || (b.t.gf-b.t.ga)-(a.t.gf-a.t.ga) || b.t.gf-a.t.gf);
+  const qualThird = new Set(thirds.slice(0,8).map(x => x.L));
+
   const cards = letters.map(L => {
-    const teams = Object.values(G[L]).sort((a,b) =>
-      b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga) || b.gf-a.gf || a.team.localeCompare(b.team,'sv'));
+    const teams = sorted[L];
     const rows = teams.map((t,i) => {
+      const advancing = i < 2 || (i === 2 && qualThird.has(L));
+      const isLive = liveTeams.has(t.team);
+      const cls = [advancing ? "adv" : "", isLive ? "playing" : ""].filter(Boolean).join(" ");
+      const dot = isLive ? `<span class="live-dot"></span>` : "";
       const gd = t.gf - t.ga; const gdStr = (gd>0?"+":"") + gd;
-      return `<tr class="${i<2?'adv':''}">
+      return `<tr class="${cls}">
         <td><span class="gpos">${i+1}</span></td>
-        <td class="team">${t.team}</td>
+        <td class="team">${dot}${t.team}</td>
         <td>${t.mp}</td>
         <td>${gdStr}</td>
         <td class="gpts">${t.pts}</td>
@@ -503,7 +520,7 @@ function renderGroups(){
     </div>`;
   }).join("");
   root.innerHTML = `<div class="groups">${cards}</div>
-    <p class="footnote" style="margin-top:20px;">S = spelade, MS = målskillnad, P = poäng. <span style="color:#2ca05a;">●</span> topp 2 går vidare. Tabellen uppdateras när matcher spelats färdigt.</p>`;
+    <p class="footnote" style="margin-top:20px;">S = spelade, MS = målskillnad, P = poäng. <span style="color:#2ca05a;">●</span> går vidare (topp 2 + 8 bästa treor). <span style="color:var(--today-accent);">●</span> spelar just nu — live-resultat räknas med.</p>`;
 }
 
 function renderSchedule(){
