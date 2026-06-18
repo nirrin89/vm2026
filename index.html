@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>VM 2026</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#161616">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VM 2026">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAACRklEQVR42u3dy23EQBBDwYlCKThsh+gU1gnYB2E/TXY9KAKioJM0cy7pj44JBIfgEByCQ3AIDsEhOASH4JDgEByCQ3AIDsEhOASH4BAcEhyCQ3AIDsEhOASH4BAcgkOCQ3AIDsEhOASH4BAcgkNwCA4JDsFxs5/vLyOsxvEr4N4DBxCg7MDxdBOrlBwsEFmE480siokcLBApxzGERRmRQwYfnTjGsuggcsjgow1HkIxcH4cMPkpwhLIIJXLI4AMOOHpx1MgI8nHI4CMYR6WMCB+HDD7ggKMXR72M4T4OGXzAAUcLjlUyxvqAA44oHAtlzPQBBxw5ONbKGOgDDjhCcCyXMc0HHHDAAUc0Diym+YADDjjggAOOQhxADPQBBxxwwAEHHHDAAQcccMABBxxwwAEHGfU+vDnIgAMOOOCAAw444IADDjjggAMOOOCAgw/fkMIBBxxwwAFHFw4+/CsLBxxwwMGHk33ggIMPMuCAIxXH5QRjOOCAgw+3JsABBx9LZFzueCMDDjgacVzulYVjoY/5s7vLnox8HE0+UgaHA44KHB0+gtYOwxFNJG7nSByJPhJHTsWR5SN04WAcKT5y583GMZxI+rANOGb6KFi1BMcoIjV7VuH4OJGyJQtxfIRI5Ya1ON5GpHi9chyvU7JhtC04ngJl21AbcfzvxghwCA7BITgEh+AQHIJDcAgOCQ7BITgEh+AQHIJDcAgOwSE4JDgEh+AQHIJDcAgOwSE4BIcEh+AQHIJDcAgOwSE4BIfgkOAQHLrTA4dWJk6XMrlIAAAAAElFTkSuQmCC">
+<style>
+:root{
+  --bg:#fafaf7;
+  --surface:#ffffff;
+  --text:#1a1a1a;
+  --muted:#666;
+  --faint:#999;
+  --border:rgba(0,0,0,0.08);
+  --border-strong:rgba(0,0,0,0.18);
+  --yle:#185FA5;
+  --yle-bg:#E6F1FB;
+  --mtv:#854F0B;
+  --live:#A32D2D;
+  --live-bg:#FCEBEB;
+  --today:#854F0B;
+  --today-bg:#FAEEDA;
+  --today-accent:#EF9F27;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#161616;
+    --surface:#1f1f1f;
+    --text:#f0f0f0;
+    --muted:#a0a0a0;
+    --faint:#707070;
+    --border:rgba(255,255,255,0.08);
+    --border-strong:rgba(255,255,255,0.18);
+    --yle:#85B7EB;
+    --yle-bg:#0C447C;
+    --mtv:#EF9F27;
+    --live:#F09595;
+    --live-bg:#501313;
+    --today:#FAC775;
+    --today-bg:#633806;
+    --today-accent:#EF9F27;
+  }
+}
+*{box-sizing:border-box;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  margin:0;
+  padding:0;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:680px;margin:0 auto;padding:calc(28px + env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));}
+header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px;}
+h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
+.sub-date{font-size:11px;color:var(--faint);}
+.sub{font-size:12px;color:var(--muted);margin:0 0 28px;}
+.controls{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+.tabs{display:flex;gap:4px;}
+.tab{
+  font-size:12px;
+  padding:5px 12px;
+  border-radius:8px;
+  border:0.5px solid var(--border);
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  font-family:inherit;
+  transition:background 0.1s;
+}
+.tab:hover{background:var(--surface);}
+.tab.active{color:var(--text);border-color:var(--border-strong);background:var(--surface);}
+.legend{font-size:11px;color:var(--faint);}
+.legend .yle-key{color:var(--yle);font-weight:500;}
+.day{
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+  padding:18px 0 8px;
+  border-bottom:0.5px solid var(--border);
+  margin-bottom:2px;
+}
+.day.is-today{border-bottom-color:var(--today-accent);border-bottom-width:1.5px;}
+.day.is-today .day-name{color:var(--today-accent);}
+.day-name{font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--text);}
+.day-date{font-size:11px;color:var(--faint);}
+.day-today{
+  font-size:10px;
+  font-weight:600;
+  color:#fff;
+  background:var(--today-accent);
+  padding:2px 9px;
+  border-radius:4px;
+  letter-spacing:0.05em;
+  text-transform:uppercase;
+}
+.day-tomorrow{font-size:10px;color:var(--muted);background:var(--surface);border:0.5px solid var(--border);padding:1px 7px;border-radius:4px;letter-spacing:0.02em;}
+.row.is-live .teams > span:not(.vs):not(.grp):not(.yle-tag){color:var(--today-accent);}
+.row{
+  display:grid;
+  grid-template-columns:56px 1fr 80px;
+  align-items:center;
+  gap:14px;
+  padding:9px 0;
+  font-size:13px;
+}
+.row + .row{border-top:0.5px solid var(--border);}
+.t{color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px;}
+.t .plus{font-size:9px;color:var(--faint);margin-left:2px;}
+.teams{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap;}
+.teams .vs{color:var(--faint);font-size:11px;}
+.teams .grp{font-size:10px;color:var(--faint);letter-spacing:0.05em;margin-left:2px;}
+.yle-tag{
+  font-size:9px;
+  font-weight:500;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:var(--yle);
+  background:var(--yle-bg);
+  padding:1px 5px;
+  border-radius:3px;
+  margin-left:4px;
+}
+.score{text-align:right;font-variant-numeric:tabular-nums;font-weight:500;}
+.pending{text-align:right;font-size:12px;color:var(--faint);}
+.live{
+  font-size:10px;
+  color:var(--today-accent);
+  background:transparent;
+  padding:0;
+  font-weight:500;
+  letter-spacing:0.05em;
+  display:inline-block;
+}
+.live-dot{
+  display:inline-block;
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:var(--today-accent);
+  margin-right:4px;
+  vertical-align:1px;
+  animation:pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}
+.live-cell{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.live-cell .live-score{font-variant-numeric:tabular-nums;font-weight:500;font-size:14px;color:var(--today-accent);}
+.footnote{font-size:10px;color:var(--faint);margin-top:32px;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Fotbolls-VM 2026</h1>
+  <span class="sub-date" id="header-date"></span>
+</header>
+<p class="sub">Finsk tid · <span id="played"></span> · <span id="updated"></span></p>
+
+<div class="controls">
+  <div class="tabs">
+    <button class="tab active" data-f="all">Alla</button>
+    <button class="tab" data-f="yle">Endast YLE</button>
+    <button class="tab" data-f="today">Idag</button>
+  </div>
+  <div class="legend"><span class="yle-key">yle</span> = sänds på YLE TV2 / Yle Arenan</div>
+</div>
+
+<div id="sched"></div>
+
+<p class="footnote">
++1 = matchen börjar nästa dag finsk tid. YLE-dagar visas gratis på TV2 och Yle Arenan. MTV-dagar visas dagens två första matcher gratis på MTV3, resten på Katsomo+ Sport.
+</p>
+
+</div>
+
+<script>
+const M = [
+  ["2026-06-11","Må","22:00","A","Mexiko","Sydafrika","2–2","played","MTV"],
+  ["2026-06-12","Fr","19:00","B","Kanada","Bosnien-Hercegovina","1–1","played","YLE"],
+  ["2026-06-12","Fr","22:00","D","USA","Paraguay","4–1","played","YLE"],
+  ["2026-06-13","Lö","19:00","B","Schweiz","Qatar","1–1","played","MTV"],
+  ["2026-06-13","Lö","22:00","C","Brasilien","Marocko","1–1","played","MTV"],
+  ["2026-06-13","Lö","01:00+1","C","Haiti","Skottland","0–1","played","MTV"],
+  ["2026-06-13","Lö","04:00+1","D","Australien","Turkiet","2–0","played","MTV"],
+  ["2026-06-14","Sö","19:00","E","Tyskland","Curaçao","7–1","played","YLE"],
+  ["2026-06-14","Sö","22:00","F","Nederländerna","Japan","2–2","played","YLE"],
+  ["2026-06-14","Sö","01:00+1","E","Elfenbenskusten","Ecuador","1–0","played","YLE"],
+  ["2026-06-14","Sö","04:00+1","F","Sverige","Tunisien","5–1","played","YLE"],
+  ["2026-06-15","Må","19:00","H","Spanien","Kap Verde","0–0","played","MTV"],
+  ["2026-06-15","Må","22:00","G","Belgien","Egypten","1–1","played","MTV"],
+  ["2026-06-15","Må","01:00+1","H","Saudiarabien","Uruguay","1–1","played","MTV"],
+  ["2026-06-15","Må","04:00+1","G","Iran","Nya Zeeland","2–2","played","MTV"],
+  ["2026-06-16","Ti","22:00","I","Frankrike","Senegal",null,"up","YLE"],
+  ["2026-06-16","Ti","01:00+1","I","Irak","Norge",null,"up","YLE"],
+  ["2026-06-16","Ti","04:00+1","J","Argentina","Algeriet",null,"up","YLE"],
+  ["2026-06-16","Ti","07:00+1","J","Österrike","Jordanien",null,"up","YLE"],
+  ["2026-06-17","On","20:00","K","Portugal","DR Kongo",null,"up","MTV"],
+  ["2026-06-17","On","23:00","K","England","Kroatien",null,"up","MTV"],
+  ["2026-06-17","On","02:00+1","L","Ghana","Panama",null,"up","MTV"],
+  ["2026-06-17","On","05:00+1","L","Uzbekistan","Colombia",null,"up","MTV"],
+  ["2026-06-18","To","19:00","A","Tjeckien","Sydafrika",null,"up","YLE"],
+  ["2026-06-18","To","22:00","B","Schweiz","Bosnien-Hercegovina",null,"up","YLE"],
+  ["2026-06-18","To","01:00+1","B","Kanada","Qatar",null,"up","YLE"],
+  ["2026-06-18","To","04:00+1","A","Mexiko","Sydkorea",null,"up","YLE"],
+].map(r=>({date:r[0],day:r[1],time:r[2],g:r[3],h:r[4],a:r[5],s:r[6],st:r[7],b:r[8]}));
+
+const dayLabels = {"Må":"Måndag","Ti":"Tisdag","On":"Onsdag","To":"Torsdag","Fr":"Fredag","Lö":"Lördag","Sö":"Söndag"};
+
+// --- Live data (TheSportsDB free API, keyless test key "3") ---
+const SV2EN = {
+  "Mexiko":"Mexico","Sydafrika":"South Africa","Kanada":"Canada","Bosnien-Hercegovina":"Bosnia and Herzegovina",
+  "USA":"United States","Paraguay":"Paraguay","Schweiz":"Switzerland","Qatar":"Qatar","Brasilien":"Brazil",
+  "Marocko":"Morocco","Haiti":"Haiti","Skottland":"Scotland","Australien":"Australia","Turkiet":"Turkey",
+  "Tyskland":"Germany","Curaçao":"Curacao","Nederländerna":"Netherlands","Japan":"Japan",
+  "Elfenbenskusten":"Ivory Coast","Ecuador":"Ecuador","Sverige":"Sweden","Tunisien":"Tunisia",
+  "Spanien":"Spain","Kap Verde":"Cape Verde","Belgien":"Belgium","Egypten":"Egypt","Saudiarabien":"Saudi Arabia",
+  "Uruguay":"Uruguay","Iran":"Iran","Nya Zeeland":"New Zealand","Frankrike":"France","Senegal":"Senegal",
+  "Irak":"Iraq","Norge":"Norway","Argentina":"Argentina","Algeriet":"Algeria","Österrike":"Austria",
+  "Jordanien":"Jordan","Portugal":"Portugal","DR Kongo":"DR Congo","England":"England","Kroatien":"Croatia",
+  "Ghana":"Ghana","Panama":"Panama","Uzbekistan":"Uzbekistan","Colombia":"Colombia","Tjeckien":"Czechia","Sydkorea":"South Korea"
+};
+function norm(s){return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z]/g,"");}
+const ALIAS = {"caboverde":"capeverde","cotedivoire":"ivorycoast","korearepublic":"southkorea",
+  "republicofkorea":"southkorea","czechrepublic":"czechia","unitedstates":"usa","usmnt":"usa",
+  "congodr":"drcongo","drcongo":"drcongo","democraticrepublicofthecongo":"drcongo","turkiye":"turkey"};
+function canon(name){const n=norm(name);return ALIAS[n]||n;}
+function pairKey(a,b){return [canon(a),canon(b)].sort().join("|");}
+function fixtureKey(m){return pairKey(SV2EN[m.h]||m.h, SV2EN[m.a]||m.a);}
+
+const liveData = {};
+let liveOk = false;
+
+async function fetchOneDay(d){
+  // one retry — the free API sometimes drops a connection
+  for(let attempt=0; attempt<2; attempt++){
+    try{
+      const r = await fetch(`https://www.thesportsdb.com/api/v1/json/3/eventsday.php?d=${d}&s=Soccer`);
+      if(r.ok) return await r.json();
+    }catch(e){ /* retry */ }
+    await new Promise(res => setTimeout(res, 400));
+  }
+  return {events:null};
+}
+
+async function fetchLive(){
+  const dates = [...new Set([YESTERDAY, TODAY, TOMORROW])];
+  let any = false;
+  for(const d of dates){                       // sequential — avoids parallel drops
+    const j = await fetchOneDay(d);
+    (j.events||[]).forEach(ev => {
+      if(!/world cup/i.test(ev.strLeague||"")) return;
+      any = true;
+      liveData[pairKey(ev.strHomeTeam, ev.strAwayTeam)] = {
+        hs: ev.intHomeScore, as: ev.intAwayScore,
+        status: ev.strStatus || "", progress: ev.strProgress || ""
+      };
+    });
+  }
+  if(any) liveOk = true;
+  updateStamp(liveOk ? "live" : "fallback");
+  render();
+}
+
+function classifyStatus(s){
+  s = (s||"").toLowerCase();
+  if(!s || /not started|^ns$|tbd|postp/.test(s)) return "ns";
+  if(/ft|full|finished|aet|pen|after extra|awarded|aban/.test(s)) return "fin";
+  return "live";
+}
+
+// --- Auto-extend the schedule from the API so the list never runs out ---
+const EN2SV = {};
+Object.keys(SV2EN).forEach(sv => { EN2SV[canon(SV2EN[sv])] = sv; });
+function toSV(en){ return EN2SV[canon(en)] || en; }
+
+const tzTime = new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Helsinki',hour:'2-digit',minute:'2-digit',hour12:false});
+const tzHel  = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Helsinki',year:'numeric',month:'2-digit',day:'2-digit'});
+const tzEt   = new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'});
+const swDay  = ["Sö","Må","Ti","On","To","Fr","Lö"];
+
+function buildFixture(ev){
+  if(!ev.strTimestamp) return null;
+  const dt = new Date(ev.strTimestamp.replace(' ','T') + 'Z');   // strTimestamp is UTC
+  if(isNaN(dt)) return null;
+  const hhmm = tzTime.format(dt);
+  const helDate = tzHel.format(dt);
+  const etDate  = tzEt.format(dt);                 // US matchday — matches curated grouping
+  const wd = new Date(etDate+'T12:00:00Z').getUTCDay();
+  return {
+    date: etDate,
+    day: swDay[wd],
+    time: hhmm + (helDate > etDate ? '+1' : ''),
+    g: (ev.strGroup||'').replace(/[^A-La-l]/g,'').toUpperCase() || '–',
+    h: toSV(ev.strHomeTeam),
+    a: toSV(ev.strAwayTeam),
+    s: (ev.intHomeScore!=null && ev.intAwayScore!=null) ? `${ev.intHomeScore}–${ev.intAwayScore}` : null,
+    b: (parseInt(etDate.slice(8,10),10) % 2 === 0) ? 'YLE' : 'MTV'   // YLE/MTV alternate by matchday
+  };
+}
+
+async function fetchSchedule(){
+  const have = new Set(M.map(fixtureKey));
+  const base = new Date();               // fresh each run → window rolls forward a day, every day
+  const days = [];
+  for(let i=-1; i<=16; i++){ const d = new Date(base); d.setDate(d.getDate()+i); days.push(fmt(d)); }
+  let added = 0;
+  for(const d of days){
+    const j = await fetchOneDay(d);
+    (j.events||[]).forEach(ev => {
+      if(!/world cup/i.test(ev.strLeague||'')) return;
+      const key = pairKey(ev.strHomeTeam, ev.strAwayTeam);
+      if(have.has(key)) return;                     // keep curated fixtures, skip dupes
+      const fx = buildFixture(ev);
+      if(!fx) return;
+      have.add(key);
+      M.push(fx);
+      added++;
+    });
+  }
+  if(added) render();
+}
+
+const now = new Date();
+const pad = n => String(n).padStart(2,"0");
+const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const TODAY = fmt(now);
+const tomorrowDate = new Date(now); tomorrowDate.setDate(tomorrowDate.getDate()+1);
+const TOMORROW = fmt(tomorrowDate);
+const yesterdayDate = new Date(now); yesterdayDate.setDate(yesterdayDate.getDate()-1);
+const YESTERDAY = fmt(yesterdayDate);
+const NOW_MIN = now.getHours()*60 + now.getMinutes();
+
+const swDayShort = ["Sö","Må","Ti","On","To","Fr","Lö"];
+document.getElementById("header-date").textContent =
+  `${dayLabels[swDayShort[now.getDay()]]} ${now.getDate()}.${now.getMonth()+1}.`;
+
+function updateStamp(mode){
+  const t = new Date();
+  const stamp = `${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
+  const el = document.getElementById("updated");
+  if(mode === "fallback") el.innerHTML = `<span style="color:var(--muted);">offline · sparade resultat</span>`;
+  else el.innerHTML = `<span class="live-dot" style="background:#2ca05a;"></span>live · uppdaterad ${stamp}`;
+}
+
+let F = "all";
+
+function passes(m){
+  if(F==="all") return true;
+  if(F==="yle") return m.b==="YLE";
+  if(F==="today") return m.date===TODAY;
+}
+
+function timeCell(t){
+  if(t.includes("+1")) return `${t.replace("+1","")}<span class="plus">+1</span>`;
+  return t;
+}
+
+function kickoffDate(m){
+  const dt = new Date(m.date+"T"+m.time.replace("+1","")+":00");
+  if(m.time.includes("+1")) dt.setDate(dt.getDate()+1);
+  return dt;
+}
+
+function clockMinute(m){
+  const elapsed = Math.floor((Date.now() - kickoffDate(m).getTime()) / 60000);
+  if(elapsed < 0 || elapsed > 130) return null;
+  if(elapsed <= 45) return `${Math.max(1,elapsed)}'`;
+  if(elapsed < 60) return "HT";
+  if(elapsed <= 105) return `${45 + (elapsed-60)}'`;
+  return "FT";
+}
+
+// Merge curated fixture with any live API data → {phase, score, minute}
+function getState(m){
+  const live = liveData[fixtureKey(m)];
+  if(live){
+    const phase = classifyStatus(live.status);
+    const score = (live.hs != null && live.as != null) ? `${live.hs}–${live.as}` : (m.s || null);
+    if(phase === "live"){
+      let minute;
+      if(/^\d+$/.test(live.progress)) minute = `${live.progress}'`;
+      else if(/half|^ht$|paus/i.test(live.status)) minute = "HT";
+      else minute = clockMinute(m) || "LIVE";
+      if(minute === "FT") minute = "90'";
+      return {phase:"live", score: score || "0–0", minute};
+    }
+    if(phase === "fin") return {phase:"fin", score: score};
+    return {phase:"ns", score:null};
+  }
+  // No live record — fall back to the clock + any stored score
+  const cm = clockMinute(m);
+  if(cm !== null && cm !== "FT") return {phase:"live", score: m.s || "0–0", minute: cm};
+  if(m.s) return {phase:"fin", score: m.s};
+  if(Date.now() < kickoffDate(m).getTime()) return {phase:"ns", score:null};
+  return {phase:"wait", score:null};
+}
+
+function statusCell(st){
+  if(st.phase === "live"){
+    return `<div class="live-cell">
+      <span class="live-score">${st.score}</span>
+      <span class="live"><span class="live-dot"></span>${st.minute}</span>
+    </div>`;
+  }
+  if(st.phase === "fin" && st.score) return `<div class="score">${st.score}</div>`;
+  if(st.phase === "ns") return `<div class="pending">kommer</div>`;
+  return `<div class="pending">väntar resultat</div>`;
+}
+
+function render(){
+  const playedEl = document.getElementById("played");
+  if(playedEl){
+    const n = M.filter(m => getState(m).phase === "fin").length;
+    const live = M.filter(m => getState(m).phase === "live").length;
+    playedEl.textContent = live ? `${live} pågår · ${n} spelade` : `${n} spelade`;
+  }
+  const root = document.getElementById("sched");
+  const by = {};
+  M.filter(passes).forEach(m=>{(by[m.date]=by[m.date]||[]).push(m);});
+  Object.values(by).forEach(list => list.sort((a,b)=>kickoffDate(a)-kickoffDate(b)));
+  const keys = Object.keys(by).sort();
+  if(!keys.length){root.innerHTML = `<p style="font-size:13px;color:var(--muted);padding:1rem 0;">Inga matcher.</p>`;return;}
+  root.innerHTML = keys.map(d=>{
+    const isToday = d===TODAY;
+    const list = by[d].map(m=>{
+      const yleTag = m.b==="YLE" ? `<span class="yle-tag">yle</span>` : "";
+      const st = getState(m);
+      const isLive = st.phase === "live";
+      return `<div class="row${isLive?" is-live":""}">
+        <span class="t">${timeCell(m.time)}</span>
+        <span class="teams">
+          <span>${m.h}</span><span class="vs">–</span><span>${m.a}</span>
+          ${yleTag}
+          <span class="grp">${m.g}</span>
+        </span>
+        ${statusCell(st)}
+      </div>`;
+    }).join("");
+    const dd = d.split("-");
+    const dateStr = `${parseInt(dd[2])}.${parseInt(dd[1])}.`;
+    let badge = "";
+    if(isToday) badge = `<span class="day-today">Idag</span>`;
+    else if(d===TOMORROW) badge = `<span class="day-tomorrow">Imorgon</span>`;
+    return `<div class="day${isToday?" is-today":""}"><span class="day-name">${dayLabels[by[d][0].day]}</span><span class="day-date">${dateStr}</span>${badge}</div>${list}`;
+  }).join("");
+}
+
+document.querySelectorAll(".tab").forEach(b=>{
+  b.addEventListener("click",()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    F = b.dataset.f;
+    render();
+  });
+});
+render();
+updateStamp("live");
+fetchSchedule();                      // pull upcoming fixtures so the list stays ahead
+fetchLive();                          // initial live pull
+setInterval(fetchLive, 90000);        // refresh scores every 90s
+setInterval(fetchSchedule, 1800000);  // refresh upcoming schedule every 30 min
+setInterval(render, 20000);           // re-tick live minutes between pulls
+</script>
+</body>
+</html>
