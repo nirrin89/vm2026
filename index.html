@@ -268,19 +268,24 @@ async function fetchOneDay(d){
   return {events:null};
 }
 
+function mergeLiveFromEvent(ev){
+  if(!/world cup/i.test(ev.strLeague||"")) return false;
+  liveData[pairKey(ev.strHomeTeam, ev.strAwayTeam)] = {
+    hs: ev.intHomeScore, as: ev.intAwayScore,
+    status: ev.strStatus || "", progress: ev.strProgress || ""
+  };
+  return true;
+}
+
 async function fetchLive(){
-  const dates = [...new Set([YESTERDAY, TODAY, TOMORROW])];
+  // Wide window so games from a few days ago refresh too (covers ET-date drift + late API updates)
+  const base = new Date();
+  const dates = [];
+  for(let i=-3; i<=1; i++){ const d=new Date(base); d.setDate(d.getDate()+i); dates.push(fmt(d)); }
   let any = false;
   for(const d of dates){                       // sequential — avoids parallel drops
     const j = await fetchOneDay(d);
-    (j.events||[]).forEach(ev => {
-      if(!/world cup/i.test(ev.strLeague||"")) return;
-      any = true;
-      liveData[pairKey(ev.strHomeTeam, ev.strAwayTeam)] = {
-        hs: ev.intHomeScore, as: ev.intAwayScore,
-        status: ev.strStatus || "", progress: ev.strProgress || ""
-      };
-    });
+    (j.events||[]).forEach(ev => { if(mergeLiveFromEvent(ev)) any = true; });
   }
   if(any) liveOk = true;
   updateStamp(liveOk ? "live" : "fallback");
@@ -333,7 +338,7 @@ async function fetchSchedule(){
   for(const d of days){
     const j = await fetchOneDay(d);
     (j.events||[]).forEach(ev => {
-      if(!/world cup/i.test(ev.strLeague||'')) return;
+      if(!mergeLiveFromEvent(ev)) return;          // always refresh score/status, even for known fixtures
       const key = pairKey(ev.strHomeTeam, ev.strAwayTeam);
       if(have.has(key)) return;                     // keep curated fixtures, skip dupes
       const fx = buildFixture(ev);
@@ -343,7 +348,9 @@ async function fetchSchedule(){
       added++;
     });
   }
-  if(added) render();
+  liveOk = true;
+  updateStamp("live");
+  render();
 }
 
 const now = new Date();
