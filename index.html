@@ -282,10 +282,52 @@ async function fetchOneDay(d){
 function mergeLiveFromEvent(ev){
   if(!/world cup/i.test(ev.strLeague||"")) return false;
   liveData[pairKey(ev.strHomeTeam, ev.strAwayTeam)] = {
-    hs: ev.intHomeScore, as: ev.intAwayScore,
+    hs: ev.intHomeScore!=null ? parseInt(ev.intHomeScore,10) : null,
+    as: ev.intAwayScore!=null ? parseInt(ev.intAwayScore,10) : null,
     status: ev.strStatus || "", progress: ev.strProgress || ""
   };
   return true;
+}
+
+// ESPN scoreboard — faster and more accurate for live games; CORS open
+async function fetchEspn(){
+  const base = new Date();
+  const dates = [];
+  for(let i=-3; i<=2; i++){ const d=new Date(base); d.setDate(d.getDate()+i); dates.push(fmt(d).replace(/-/g,'')); }
+  let any = false;
+  for(const d of dates){
+    try{
+      const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${d}`);
+      if(!r.ok) continue;
+      const j = await r.json();
+      (j.events||[]).forEach(ev => {
+        const comp = (ev.competitions||[])[0]; if(!comp) return;
+        const home = comp.competitors.find(c=>c.homeAway==='home');
+        const away = comp.competitors.find(c=>c.homeAway==='away');
+        if(!home || !away) return;
+        const state = (comp.status && comp.status.type && comp.status.type.state) || 'pre';
+        const detail = (comp.status && comp.status.type && comp.status.type.shortDetail) || '';
+        const clock  = (comp.status && comp.status.displayClock) || '';
+        let status, progress = '';
+        if(state === 'post') status = 'FT';
+        else if(state === 'in'){
+          if(/^(HT|Halftime)$/i.test(detail)){ status = 'HT'; progress = 'HT'; }
+          else {
+            status = '1H';                                  // generic "live" — classifier returns "live"
+            const m = clock.match(/^(\d+)/);
+            if(m) progress = m[1];                         // integer minute
+          }
+        } else status = 'NS';
+        liveData[pairKey(home.team.name, away.team.name)] = {
+          hs: home.score!=null ? parseInt(home.score,10) : null,
+          as: away.score!=null ? parseInt(away.score,10) : null,
+          status, progress
+        };
+        any = true;
+      });
+    } catch(e) {}
+  }
+  return any;
 }
 
 async function fetchLive(){
@@ -424,22 +466,22 @@ function getState(m){
     if(phase === "live"){
       let minute;
       if(/^\d+$/.test(live.progress)) minute = `${live.progress}'`;
-      else if(/half|^ht$|paus/i.test(live.status)) minute = "HT";
+      else if(/^(HT|Halftime|Paus)$/i.test(live.progress) || /^(HT|Halftime)$/i.test(live.status)) minute = "HT";
       else minute = clockMinute(m) || "LIVE";
       if(minute === "FT") minute = "90'";
-      return {phase:"live", score: score || "0–0", minute};
+      return {phase:"live", score: score || "–", minute};
     }
     if(phase === "fin") return {phase:"fin", score: score};
     // API says NS but clock is past kickoff → trust the clock (API status can lag at kickoff)
     const cm = clockMinute(m);
     if(cm !== null && cm !== "FT"){
-      return {phase:"live", score: score || "0–0", minute: cm};
+      return {phase:"live", score: score || "–", minute: cm};
     }
     return {phase:"ns", score:null};
   }
   // No live record — fall back to the clock + any stored score
   const cm = clockMinute(m);
-  if(cm !== null && cm !== "FT") return {phase:"live", score: m.s || "0–0", minute: cm};
+  if(cm !== null && cm !== "FT") return {phase:"live", score: m.s || "–", minute: cm};
   if(m.s) return {phase:"fin", score: m.s};
   if(Date.now() < kickoffDate(m).getTime()) return {phase:"ns", score:null};
   return {phase:"wait", score:null};
@@ -677,11 +719,16 @@ document.addEventListener("click", e => {
   if(back){ e.preventDefault(); history.replaceState(null,"","#"); render(); }
 });
 window.addEventListener("hashchange", render);
+async function refreshAll(){
+  await fetchLive();                                 // TheSportsDB first — provides coverage for older days
+  await fetchEspn();                                 // ESPN second so it overrides with fresher live data
+  liveOk = true; updateStamp("live"); render();
+}
 render();
 updateStamp("live");
 fetchSchedule();                      // pull upcoming fixtures so the list stays ahead
-fetchLive();                          // initial live pull
-setInterval(fetchLive, 90000);        // refresh scores every 90s
+refreshAll();                         // initial combined live pull
+setInterval(refreshAll, 45000);       // refresh scores every 45s (ESPN updates more often than tsdb did)
 setInterval(fetchSchedule, 1800000);  // refresh upcoming schedule every 30 min
 setInterval(render, 20000);           // re-tick live minutes between pulls
 </script>
