@@ -430,6 +430,11 @@ function getState(m){
       return {phase:"live", score: score || "0–0", minute};
     }
     if(phase === "fin") return {phase:"fin", score: score};
+    // API says NS but clock is past kickoff → trust the clock (API status can lag at kickoff)
+    const cm = clockMinute(m);
+    if(cm !== null && cm !== "FT"){
+      return {phase:"live", score: score || "0–0", minute: cm};
+    }
     return {phase:"ns", score:null};
   }
   // No live record — fall back to the clock + any stored score
