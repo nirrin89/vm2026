@@ -169,6 +169,17 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .gtable tr.adv .gpos{color:#2ca05a;font-weight:500;}
 .gtable tr.playing td.team{color:var(--today-accent);}
 .gpts{font-weight:500;}
+.team-link{background:none;border:0;padding:0;margin:0;color:inherit;font:inherit;cursor:pointer;text-align:left;}
+.team-link:hover{color:var(--today-accent);}
+.team-link.is-german{font-weight:500;}
+.team-link.is-german .flag{margin-right:4px;}
+.row.has-german{border-left:2px solid var(--today-accent);padding-left:8px;margin-left:-10px;}
+.team-page-head{display:flex;align-items:center;gap:10px;margin:0 0 18px;}
+.team-page-head button.back{background:none;border:0.5px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--text);font:inherit;font-size:13px;}
+.team-page-head button.back:hover{background:var(--surface);}
+.team-page-head h2{font-size:20px;font-weight:500;margin:0;flex:1;}
+.team-summary{display:flex;gap:14px;font-size:12px;color:var(--muted);margin:0 0 18px;flex-wrap:wrap;}
+.team-summary b{color:var(--text);font-weight:500;}
 </style>
 </head>
 <body>
@@ -441,22 +452,102 @@ function statusCell(st){
   return `<div class="pending">väntar resultat</div>`;
 }
 
+function teamSpan(name){
+  const isGer = name === "Tyskland";
+  const flag = isGer ? `<span class="flag">🇩🇪</span>` : "";
+  return `<button class="team-link${isGer?' is-german':''}" data-team="${name}">${flag}${name}</button>`;
+}
+
+function currentTeam(){
+  const m = (location.hash||"").match(/^#team=(.+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function computeTeamSummary(team){
+  let mp=0,w=0,d=0,l=0,gf=0,ga=0,group=null;
+  M.forEach(m => {
+    if(m.h !== team && m.a !== team) return;
+    if(/^[A-L]$/.test(m.g)) group = m.g;
+    const st = getState(m);
+    if((st.phase !== "fin" && st.phase !== "live") || !st.score) return;
+    const p = st.score.split("–").map(s => parseInt(s,10));
+    if(p.length !== 2 || p.some(isNaN)) return;
+    const isHome = m.h === team;
+    const us = isHome ? p[0] : p[1], them = isHome ? p[1] : p[0];
+    mp++; gf+=us; ga+=them;
+    if(us>them) w++; else if(us<them) l++; else d++;
+  });
+  return { mp, w, d, l, gf, ga, gd: gf-ga, pts: w*3+d, group };
+}
+
+function renderTeamPage(team){
+  const root = document.getElementById("sched");
+  const matches = M.filter(m => m.h === team || m.a === team)
+    .sort((a,b) => kickoffDate(a) - kickoffDate(b));
+  const s = computeTeamSummary(team);
+  const isGer = team === "Tyskland";
+  const flag = isGer ? "🇩🇪 " : "";
+  const gdStr = (s.gd>0?"+":"") + s.gd;
+  const summary = s.mp
+    ? `<div class="team-summary">${s.group?`<span>Grupp <b>${s.group}</b></span>`:""}<span><b>${s.mp}</b> spelade</span><span><b>${s.w}</b> V · <b>${s.d}</b> O · <b>${s.l}</b> F</span><span><b>${s.pts}</b> poäng</span><span>Mål <b>${s.gf}–${s.ga}</b> (${gdStr})</span></div>`
+    : `<div class="team-summary">${s.group?`<span>Grupp <b>${s.group}</b></span>`:""}<span>Inga matcher spelade ännu</span></div>`;
+
+  const by = {};
+  matches.forEach(m=>{(by[m.date]=by[m.date]||[]).push(m);});
+  const keys = Object.keys(by).sort();
+  const days = keys.map(d => {
+    const list = by[d].map(m => {
+      const yleTag = m.b==="YLE" ? `<span class="yle-tag">yle</span>` : "";
+      const st = getState(m);
+      const isLive = st.phase === "live";
+      const hasGer = m.h === "Tyskland" || m.a === "Tyskland";
+      return `<div class="row${isLive?" is-live":""}${hasGer&&!isGer?" has-german":""}">
+        <span class="t">${timeCell(m.time)}</span>
+        <span class="teams">
+          ${teamSpan(m.h)}<span class="vs">–</span>${teamSpan(m.a)}
+          ${yleTag}
+          <span class="grp">${m.g}</span>
+        </span>
+        ${statusCell(st)}
+      </div>`;
+    }).join("");
+    const dd = d.split("-");
+    const dateStr = `${parseInt(dd[2])}.${parseInt(dd[1])}.`;
+    let badge = "";
+    if(d===TODAY) badge = `<span class="day-today">Idag</span>`;
+    else if(d===TOMORROW) badge = `<span class="day-tomorrow">Imorgon</span>`;
+    return `<div class="day"><span class="day-name">${dayLabels[by[d][0].day]}</span><span class="day-date">${dateStr}</span>${badge}</div>${list}`;
+  }).join("");
+
+  root.innerHTML = `<div class="team-page-head"><button class="back" data-back="1">← Tillbaka</button><h2>${flag}${team}</h2></div>${summary}${days || `<p style="color:var(--muted);font-size:13px;">Inga matcher.</p>`}`;
+}
+
 function render(){
+  const team = currentTeam();
+  const controls = document.querySelector(".controls");
+  const legend = document.getElementById("legend");
+  const foot = document.getElementById("footnote");
+  if(team){
+    if(controls) controls.style.display = "none";
+    if(legend) legend.style.display = "none";
+    if(foot) foot.style.display = "none";
+    renderTeamPage(team);
+    return;
+  }
+  if(controls) controls.style.display = "";
+  if(legend && F !== "grupper") legend.style.display = "";
+  if(foot && F !== "grupper") foot.style.display = "";
   const playedEl = document.getElementById("played");
   if(playedEl){
     const n = M.filter(m => getState(m).phase === "fin").length;
     const live = M.filter(m => getState(m).phase === "live").length;
     playedEl.textContent = live ? `${live} pågår · ${n} spelade` : `${n} spelade`;
   }
-  const legend = document.getElementById("legend");
-  const foot = document.getElementById("footnote");
   if(F === "grupper"){
     if(legend) legend.style.display = "none";
     if(foot) foot.style.display = "none";
     renderGroups();
   } else {
-    if(legend) legend.style.display = "";
-    if(foot) foot.style.display = "";
     renderSchedule();
   }
 }
@@ -513,7 +604,7 @@ function renderGroups(){
       const gd = t.gf - t.ga; const gdStr = (gd>0?"+":"") + gd;
       return `<tr class="${cls}">
         <td><span class="gpos">${i+1}</span></td>
-        <td class="team">${dot}${t.team}</td>
+        <td class="team">${dot}${teamSpan(t.team)}</td>
         <td>${t.mp}</td>
         <td>${gdStr}</td>
         <td class="gpts">${t.pts}</td>
@@ -545,10 +636,11 @@ function renderSchedule(){
       const yleTag = m.b==="YLE" ? `<span class="yle-tag">yle</span>` : "";
       const st = getState(m);
       const isLive = st.phase === "live";
-      return `<div class="row${isLive?" is-live":""}">
+      const hasGer = m.h === "Tyskland" || m.a === "Tyskland";
+      return `<div class="row${isLive?" is-live":""}${hasGer?" has-german":""}">
         <span class="t">${timeCell(m.time)}</span>
         <span class="teams">
-          <span>${m.h}</span><span class="vs">–</span><span>${m.a}</span>
+          ${teamSpan(m.h)}<span class="vs">–</span>${teamSpan(m.a)}
           ${yleTag}
           <span class="grp">${m.g}</span>
         </span>
@@ -566,12 +658,20 @@ function renderSchedule(){
 
 document.querySelectorAll(".tab").forEach(b=>{
   b.addEventListener("click",()=>{
+    if(currentTeam()){ history.replaceState(null,"","#"); }   // exit team view first
     document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
     b.classList.add("active");
     F = b.dataset.f;
     render();
   });
 });
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-team]");
+  if(t){ e.preventDefault(); location.hash = "team=" + encodeURIComponent(t.dataset.team); window.scrollTo(0,0); return; }
+  const back = e.target.closest("[data-back]");
+  if(back){ e.preventDefault(); history.replaceState(null,"","#"); render(); }
+});
+window.addEventListener("hashchange", render);
 render();
 updateStamp("live");
 fetchSchedule();                      // pull upcoming fixtures so the list stays ahead
