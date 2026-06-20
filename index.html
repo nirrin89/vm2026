@@ -259,13 +259,18 @@ const SV2EN = {
 function norm(s){return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z]/g,"");}
 const ALIAS = {"caboverde":"capeverde","cotedivoire":"ivorycoast","korearepublic":"southkorea",
   "republicofkorea":"southkorea","czechrepublic":"czechia","unitedstates":"usa","usmnt":"usa",
-  "congodr":"drcongo","drcongo":"drcongo","democraticrepublicofthecongo":"drcongo","turkiye":"turkey"};
+  "congodr":"drcongo","drcongo":"drcongo","democraticrepublicofthecongo":"drcongo","turkiye":"turkey",
+  "bosniaandherzegovina":"bosniaherzegovina","bosniaherzegovina":"bosniaherzegovina"};
 function canon(name){const n=norm(name);return ALIAS[n]||n;}
 function pairKey(a,b){return [canon(a),canon(b)].sort().join("|");}
 function fixtureKey(m){return pairKey(SV2EN[m.h]||m.h, SV2EN[m.a]||m.a);}
 
 const liveData = {};
 let liveOk = false;
+
+// Snapshot of curated group memberships — authoritative, never overridden by fetched data
+const TEAM_GROUPS = {};
+M.forEach(m => { if(/^[A-L]$/.test(m.g)){ TEAM_GROUPS[m.h]=m.g; TEAM_GROUPS[m.a]=m.g; } });
 
 async function fetchOneDay(d){
   // one retry — the free API sometimes drops a connection
@@ -289,12 +294,34 @@ function mergeLiveFromEvent(ev){
   return true;
 }
 
-// ESPN scoreboard — faster and more accurate for live games; CORS open
+function buildTeamGroups(){ return TEAM_GROUPS; }
+
+function buildFromEspn(ev, hSV, aSV, t2g){
+  if(!ev.date) return null;
+  const dt = new Date(ev.date);                    // ESPN gives ISO 8601 UTC
+  if(isNaN(dt)) return null;
+  const hhmm = tzTime.format(dt);
+  const helDate = tzHel.format(dt);
+  const etDate  = tzEt.format(dt);
+  const wd = new Date(etDate+'T12:00:00Z').getUTCDay();
+  return {
+    date: etDate,
+    day: swDay[wd],
+    time: hhmm + (helDate > etDate ? '+1' : ''),
+    g: (t2g[hSV] && t2g[hSV] === t2g[aSV]) ? t2g[hSV] : '–',   // only tag as group X when BOTH teams are in group X
+    h: hSV, a: aSV,
+    s: null,
+    b: (parseInt(etDate.slice(8,10),10) % 2 === 0) ? 'YLE' : 'MTV'
+  };
+}
+
+// ESPN scoreboard — primary source for both schedule and live data; CORS open
 async function fetchEspn(){
   const base = new Date();
   const dates = [];
-  for(let i=-3; i<=2; i++){ const d=new Date(base); d.setDate(d.getDate()+i); dates.push(fmt(d).replace(/-/g,'')); }
-  let any = false;
+  for(let i=-3; i<=20; i++){ const d=new Date(base); d.setDate(d.getDate()+i); dates.push(fmt(d).replace(/-/g,'')); }
+  const t2g = buildTeamGroups();
+  let any = false, added = 0;
   for(const d of dates){
     try{
       const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${d}`);
@@ -314,16 +341,24 @@ async function fetchEspn(){
           if(/^(HT|Halftime)$/i.test(detail)){ status = 'HT'; progress = 'HT'; }
           else {
             status = '1H';                                  // generic "live" — classifier returns "live"
-            const m = clock.match(/^(\d+)/);
-            if(m) progress = m[1];                         // integer minute
+            const mm = clock.match(/^(\d+)/);
+            if(mm) progress = mm[1];                         // integer minute
           }
         } else status = 'NS';
-        liveData[pairKey(home.team.name, away.team.name)] = {
+        const hName = home.team.displayName || home.team.name;
+        const aName = away.team.displayName || away.team.name;
+        const key = pairKey(hName, aName);
+        liveData[key] = {
           hs: home.score!=null ? parseInt(home.score,10) : null,
           as: away.score!=null ? parseInt(away.score,10) : null,
           status, progress
         };
         any = true;
+        // Add fixture if we don't already have it (check M live to avoid races with fetchSchedule)
+        if(!M.some(mx => fixtureKey(mx) === key)){
+          const fx = buildFromEspn(ev, toSV(hName), toSV(aName), t2g);
+          if(fx){ M.push(fx); added++; }
+        }
       });
     } catch(e) {}
   }
@@ -383,7 +418,6 @@ function buildFixture(ev){
 }
 
 async function fetchSchedule(){
-  const have = new Set(M.map(fixtureKey));
   const base = new Date();               // fresh each run → window rolls forward a day, every day
   const days = [];
   for(let i=-1; i<=16; i++){ const d = new Date(base); d.setDate(d.getDate()+i); days.push(fmt(d)); }
@@ -393,10 +427,9 @@ async function fetchSchedule(){
     (j.events||[]).forEach(ev => {
       if(!mergeLiveFromEvent(ev)) return;          // always refresh score/status, even for known fixtures
       const key = pairKey(ev.strHomeTeam, ev.strAwayTeam);
-      if(have.has(key)) return;                     // keep curated fixtures, skip dupes
+      if(M.some(mx => fixtureKey(mx) === key)) return;   // race-safe dedupe — check live M
       const fx = buildFixture(ev);
       if(!fx) return;
-      have.add(key);
       M.push(fx);
       added++;
     });
@@ -600,21 +633,29 @@ function render(){
 }
 
 // --- standings computed live from results ---
+function trustedGroup(m){
+  // Only accept m.g when both teams genuinely belong to that group per the authoritative map
+  if(!/^[A-L]$/.test(m.g)) return null;
+  if(TEAM_GROUPS[m.h] && TEAM_GROUPS[m.h] !== m.g) return null;
+  if(TEAM_GROUPS[m.a] && TEAM_GROUPS[m.a] !== m.g) return null;
+  return m.g;
+}
+
 function computeGroups(){
   const G = {};
   M.forEach(m => {
-    if(!/^[A-L]$/.test(m.g)) return;
-    G[m.g] = G[m.g] || {};
-    [m.h, m.a].forEach(t => { if(!G[m.g][t]) G[m.g][t] = {team:t, mp:0,w:0,d:0,l:0,gf:0,ga:0,pts:0}; });
+    const g = trustedGroup(m); if(!g) return;
+    G[g] = G[g] || {};
+    [m.h, m.a].forEach(t => { if(!G[g][t]) G[g][t] = {team:t, mp:0,w:0,d:0,l:0,gf:0,ga:0,pts:0}; });
   });
   M.forEach(m => {
-    if(!/^[A-L]$/.test(m.g)) return;
+    const g = trustedGroup(m); if(!g) return;
     const st = getState(m);
     if((st.phase !== "fin" && st.phase !== "live") || !st.score) return;  // live games count provisionally
     const p = st.score.split("–").map(s => parseInt(s,10));
     if(p.length !== 2 || p.some(isNaN)) return;
     const [hs, as_] = p;
-    const H = G[m.g][m.h], A = G[m.g][m.a];
+    const H = G[g][m.h], A = G[g][m.a];
     if(!H || !A) return;
     H.mp++; A.mp++; H.gf+=hs; H.ga+=as_; A.gf+=as_; A.ga+=hs;
     if(hs>as_){ H.w++; A.l++; H.pts+=3; }
