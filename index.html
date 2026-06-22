@@ -206,7 +206,7 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
     <button class="tab" data-f="today">Idag</button>
     <button class="tab" data-f="all">Alla</button>
     <button class="tab" data-f="grupper">Grupper</button>
-    <button class="tab" data-f="skyttar">Skyttar</button>
+    <button class="tab" data-f="skyttar">Målskyttar</button>
   </div>
   <div class="legend" id="legend"><span class="yle-key">yle</span> = sänds på YLE TV2 / Yle Arenan</div>
 </div>
@@ -328,7 +328,7 @@ function buildFromEspn(ev, hSV, aSV, t2g){
 async function fetchEspn(){
   const base = new Date();
   const dates = [];
-  for(let i=-3; i<=20; i++){ const d=new Date(base); d.setDate(d.getDate()+i); dates.push(fmt(d).replace(/-/g,'')); }
+  for(let i=-15; i<=20; i++){ const d=new Date(base); d.setDate(d.getDate()+i); dates.push(fmt(d).replace(/-/g,'')); }
   const t2g = buildTeamGroups();
   let any = false, added = 0;
   for(const d of dates){
