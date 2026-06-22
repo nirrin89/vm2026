@@ -325,18 +325,24 @@ function buildFromEspn(ev, hSV, aSV, t2g){
 }
 
 // ESPN scoreboard — primary source for both schedule and live data; CORS open
+// Tournament-wide fetch: June 11, 2026 → July 19, 2026 (covers every WC match for the whole tournament)
 async function fetchEspn(){
-  const base = new Date();
+  const tStart = new Date(Date.UTC(2026,5,11));   // June 11
+  const tEnd   = new Date(Date.UTC(2026,6,19));   // July 19
   const dates = [];
-  for(let i=-15; i<=20; i++){ const d=new Date(base); d.setDate(d.getDate()+i); dates.push(fmt(d).replace(/-/g,'')); }
+  for(let d = new Date(tStart); d <= tEnd; d.setUTCDate(d.getUTCDate()+1)){
+    dates.push(d.getUTCFullYear() + pad(d.getUTCMonth()+1) + pad(d.getUTCDate()));
+  }
   const t2g = buildTeamGroups();
   let any = false, added = 0;
-  for(const d of dates){
-    try{
-      const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${d}`);
-      if(!r.ok) continue;
-      const j = await r.json();
-      (j.events||[]).forEach(ev => {
+  // Parallel fetch — ESPN handles bursts fine and this turns a 30s sequential pull into ~2s
+  const responses = await Promise.all(dates.map(d =>
+    fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${d}`)
+      .then(r => r.ok ? r.json() : null).catch(() => null)
+  ));
+  for(const j of responses){
+    if(!j) continue;
+    (j.events||[]).forEach(ev => {
         const comp = (ev.competitions||[])[0]; if(!comp) return;
         const home = comp.competitors.find(c=>c.homeAway==='home');
         const away = comp.competitors.find(c=>c.homeAway==='away');
@@ -369,8 +375,7 @@ async function fetchEspn(){
           const fx = buildFromEspn(ev, toSV(hName), toSV(aName), t2g);
           if(fx){ M.push(fx); added++; }
         }
-      });
-    } catch(e) {}
+    });
   }
   return any;
 }
