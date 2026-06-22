@@ -180,6 +180,14 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .team-page-head h2{font-size:20px;font-weight:500;margin:0;flex:1;}
 .team-summary{display:flex;gap:14px;font-size:12px;color:var(--muted);margin:0 0 18px;flex-wrap:wrap;}
 .team-summary b{color:var(--text);font-weight:500;}
+.scorers{margin-top:6px;}
+.scorer-row{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:baseline;padding:9px 0;border-top:0.5px solid var(--border);font-size:14px;}
+.scorer-row:first-child{border-top:0;}
+.scorer-rank{font-size:11px;color:var(--faint);text-align:center;font-variant-numeric:tabular-nums;}
+.scorer-team{font-size:11px;color:var(--muted);margin-left:6px;}
+.scorer-goals{font-variant-numeric:tabular-nums;font-weight:500;}
+.scorer-goals .label{font-size:11px;font-weight:400;color:var(--muted);margin-left:4px;}
+.scorer-loading{padding:16px 0;font-size:13px;color:var(--muted);text-align:center;}
 </style>
 </head>
 <body>
@@ -198,6 +206,7 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
     <button class="tab" data-f="today">Idag</button>
     <button class="tab" data-f="all">Alla</button>
     <button class="tab" data-f="grupper">Grupper</button>
+    <button class="tab" data-f="skyttar">Skyttar</button>
   </div>
   <div class="legend" id="legend"><span class="yle-key">yle</span> = sänds på YLE TV2 / Yle Arenan</div>
 </div>
@@ -351,7 +360,8 @@ async function fetchEspn(){
         liveData[key] = {
           hs: home.score!=null ? parseInt(home.score,10) : null,
           as: away.score!=null ? parseInt(away.score,10) : null,
-          status, progress
+          status, progress,
+          eid: ev.id, state
         };
         any = true;
         // Add fixture if we don't already have it (check M live to avoid races with fetchSchedule)
@@ -615,8 +625,9 @@ function render(){
     return;
   }
   if(controls) controls.style.display = "";
-  if(legend && F !== "grupper") legend.style.display = "";
-  if(foot && F !== "grupper") foot.style.display = "";
+  const isFullScreen = F === "grupper" || F === "skyttar";
+  if(legend) legend.style.display = isFullScreen ? "none" : "";
+  if(foot) foot.style.display = isFullScreen ? "none" : "";
   const playedEl = document.getElementById("played");
   if(playedEl){
     const n = M.filter(m => getState(m).phase === "fin").length;
@@ -627,6 +638,10 @@ function render(){
     if(legend) legend.style.display = "none";
     if(foot) foot.style.display = "none";
     renderGroups();
+  } else if(F === "skyttar"){
+    if(legend) legend.style.display = "none";
+    if(foot) foot.style.display = "none";
+    renderScorers();
   } else {
     renderSchedule();
   }
@@ -709,6 +724,85 @@ function renderGroups(){
   }).join("");
   root.innerHTML = `<div class="groups">${cards}</div>
     <p class="footnote" style="margin-top:20px;">S = spelade, MS = målskillnad, P = poäng. <span style="color:#2ca05a;">●</span> går vidare (topp 2 + 8 bästa treor). <span style="color:var(--today-accent);">●</span> spelar just nu — live-resultat räknas med.</p>`;
+}
+
+// --- Top scorers — fetched lazily from ESPN match summaries; cached in memory ---
+const scorerCache = {};   // eventId -> [{ player, team, ownGoal }]
+let scorerInflight = false;
+
+async function fetchMatchScorers(eventId){
+  if(scorerCache[eventId]) return scorerCache[eventId];
+  try{
+    const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event=${eventId}`);
+    if(!r.ok) return [];
+    const j = await r.json();
+    const goals = [];
+    (j.keyEvents||[]).forEach(p => {
+      if(!p.scoringPlay) return;
+      const text = p.text || '';
+      const team = (p.team||{}).displayName || '';
+      const own  = /own[- ]goal/i.test(text);
+      // "Goal! X 1, Y 0. Player Name (Country) ..."
+      const m = text.match(/\.\s+([^.()]+?)\s*\(([^)]+)\)/);
+      if(m){
+        goals.push({ player: m[1].trim(), team, ownGoal: own });
+      }
+    });
+    scorerCache[eventId] = goals;
+    return goals;
+  }catch(e){ return []; }
+}
+
+async function aggregateScorers(){
+  const board = {};
+  // Find finished/live matches with an event ID (via liveData)
+  const tasks = [];
+  M.forEach(m => {
+    const live = liveData[fixtureKey(m)];
+    if(!live || !live.eid) return;
+    if(live.state !== 'in' && live.state !== 'post') return;
+    tasks.push(live.eid);
+  });
+  // Parallel — ESPN handles burst fine; cache makes subsequent renders instant
+  const results = await Promise.all([...new Set(tasks)].map(fetchMatchScorers));
+  for(const goals of results){
+    for(const g of goals){
+      if(g.ownGoal) continue;          // exclude own goals from leaderboard
+      const key = g.player.toLowerCase();
+      if(!board[key]) board[key] = { name: g.player, team: g.team, goals: 0 };
+      board[key].goals++;
+    }
+  }
+  return Object.values(board).sort((a,b) => b.goals - a.goals || a.name.localeCompare(b.name,'sv'));
+}
+
+async function renderScorers(){
+  const root = document.getElementById("sched");
+  if(scorerInflight){ return; }
+  // initial loading state if cache empty
+  const cached = Object.keys(scorerCache).length > 0;
+  if(!cached){
+    root.innerHTML = `<div class="scorer-loading">Hämtar målgörare…</div>`;
+  }
+  scorerInflight = true;
+  try{
+    const list = await aggregateScorers();
+    if(F !== "skyttar") return;     // user navigated away
+    if(!list.length){
+      root.innerHTML = `<div class="scorer-loading">Inga målgörare ännu.</div>`;
+      return;
+    }
+    const html = list.map((s, i) => `
+      <div class="scorer-row">
+        <span class="scorer-rank">${i+1}</span>
+        <span><span>${s.name}</span><span class="scorer-team">${toSV(s.team)}</span></span>
+        <span class="scorer-goals">${s.goals}<span class="label">${s.goals===1?'mål':'mål'}</span></span>
+      </div>`).join("");
+    root.innerHTML = `<div class="scorers">${html}</div>
+      <p class="footnote" style="margin-top:20px;">Skytteliga baserad på spelade och pågående matcher (ESPN). Självmål räknas inte i listan.</p>`;
+  } finally {
+    scorerInflight = false;
+  }
 }
 
 function renderSchedule(){
