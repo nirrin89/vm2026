@@ -792,7 +792,7 @@ async function renderScorers(){
       root.innerHTML = `<div class="scorer-loading">Inga målgörare ännu.</div>`;
       return;
     }
-    const html = list.map((s, i) => `
+    const html = list.slice(0,10).map((s, i) => `
       <div class="scorer-row">
         <span class="scorer-rank">${i+1}</span>
         <span><span>${s.name}</span><span class="scorer-team">${toSV(s.team)}</span></span>
