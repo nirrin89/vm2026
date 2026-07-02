@@ -129,6 +129,7 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
   margin-left:4px;
 }
 .score{text-align:right;font-variant-numeric:tabular-nums;font-weight:500;}
+.score-note{font-size:11px;font-weight:400;color:var(--muted);margin-left:3px;}
 .pending{text-align:right;font-size:12px;color:var(--faint);}
 .live{
   font-size:10px;
@@ -349,9 +350,14 @@ async function fetchEspn(){
         if(!home || !away) return;
         const state = (comp.status && comp.status.type && comp.status.type.state) || 'pre';
         const detail = (comp.status && comp.status.type && comp.status.type.shortDetail) || '';
+        const typName = (comp.status && comp.status.type && comp.status.type.name) || '';
         const clock  = (comp.status && comp.status.displayClock) || '';
         let status, progress = '';
-        if(state === 'post') status = 'FT';
+        if(state === 'post'){
+          if(typName === 'STATUS_FINAL_PEN') status = 'FT-Pens';
+          else if(typName === 'STATUS_FINAL_AET') status = 'FT-AET';
+          else status = 'FT';
+        }
         else if(state === 'in'){
           if(/^(HT|Halftime)$/i.test(detail)){ status = 'HT'; progress = 'HT'; }
           else {
@@ -367,7 +373,11 @@ async function fetchEspn(){
           hs: home.score!=null ? parseInt(home.score,10) : null,
           as: away.score!=null ? parseInt(away.score,10) : null,
           status, progress,
-          eid: ev.id, state
+          eid: ev.id, state,
+          hsPen: home.shootoutScore!=null ? parseInt(home.shootoutScore,10) : null,
+          asPen: away.shootoutScore!=null ? parseInt(away.shootoutScore,10) : null,
+          aet:  typName === 'STATUS_FINAL_AET',
+          pens: typName === 'STATUS_FINAL_PEN'
         };
         any = true;
         // Add fixture if we don't already have it (check M live to avoid races with fetchSchedule)
@@ -519,7 +529,15 @@ function getState(m){
       if(minute === "FT") minute = "90'";
       return {phase:"live", score: score || "–", minute};
     }
-    if(phase === "fin") return {phase:"fin", score: score};
+    if(phase === "fin"){
+      const pens = live.pens && live.hsPen!=null && live.asPen!=null;
+      return {
+        phase:"fin", score,
+        aet: !!live.aet,
+        pens: !!pens,
+        pensScore: pens ? `${live.hsPen}–${live.asPen}` : null
+      };
+    }
     // API says NS but clock is past kickoff → trust the clock (API status can lag at kickoff)
     const cm = clockMinute(m);
     if(cm !== null && cm !== "FT"){
@@ -542,7 +560,12 @@ function statusCell(st){
       <span class="live"><span class="live-dot"></span>${st.minute}</span>
     </div>`;
   }
-  if(st.phase === "fin" && st.score) return `<div class="score">${st.score}</div>`;
+  if(st.phase === "fin" && st.score){
+    let suffix = "";
+    if(st.pens)      suffix = ` <span class="score-note">(${st.pensScore} str)</span>`;
+    else if(st.aet)  suffix = ` <span class="score-note">e fö</span>`;
+    return `<div class="score">${st.score}${suffix}</div>`;
+  }
   if(st.phase === "ns") return `<div class="pending">kommer</div>`;
   return `<div class="pending">väntar resultat</div>`;
 }
