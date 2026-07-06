@@ -831,8 +831,50 @@ function renderGroups(){
 
 // --- Knockout bracket — visual grid tree with matches positioned round by round ---
 function shortName(sv){ return SHORT[sv] || sv.slice(0,3).toUpperCase(); }
+function isRealTeam(name){ return !!FLAGS[name]; }
 
-function bracketCard(m, span, startRow, col){
+// Walk back through the bracket tree to find every team that could still reach a given cell
+const CHAIN = ['r32','r16','qf','sf','f'];
+function possibleTeamsForCell(round, idx, ctx){
+  const ri = CHAIN.indexOf(round);
+  const arr = ctx[round];
+  const m = arr && arr[idx];
+  if(m){
+    const teams = [m.h, m.a].filter(Boolean);
+    const known = teams.filter(isRealTeam);
+    if(known.length === 2) return known;                        // both real: those are the possibles
+  }
+  if(ri === 0) return m ? [m.h, m.a].filter(Boolean) : [];
+  const prev = CHAIN[ri - 1];
+  return [
+    ...possibleTeamsForCell(prev, idx * 2,     ctx),
+    ...possibleTeamsForCell(prev, idx * 2 + 1, ctx)
+  ];
+}
+function possibleTop(round, idx, ctx){
+  const ri = CHAIN.indexOf(round); if(ri === 0) return [];
+  return possibleTeamsForCell(CHAIN[ri - 1], idx * 2,     ctx);
+}
+function possibleBottom(round, idx, ctx){
+  const ri = CHAIN.indexOf(round); if(ri === 0) return [];
+  return possibleTeamsForCell(CHAIN[ri - 1], idx * 2 + 1, ctx);
+}
+
+function renderSideRow(teams, score, isWin, isTBD){
+  if(!teams.length) return `<div class="brow tbd"><span class="code" style="color:var(--faint);">TBD</span></div>`;
+  if(teams.length === 1 && !isTBD){
+    const t = teams[0];
+    return `<div class="brow${isWin?' win':''}"><span class="flag">${FLAGS[t]||''}</span><span class="code">${shortName(t)}</span><span class="sc">${score}</span></div>`;
+  }
+  // Multiple possible feeders — show them with a slash-separated compact list
+  const parts = teams.slice(0, 6).map(t =>
+    `<span class="flag">${FLAGS[t]||''}</span><span class="code">${shortName(t)}</span>`
+  ).join(`<span style="color:var(--faint);margin:0 3px;">·</span>`);
+  const more = teams.length > 6 ? `<span style="color:var(--faint);"> +${teams.length-6}</span>` : '';
+  return `<div class="brow tbd">${parts}${more}</div>`;
+}
+
+function bracketCard(m, span, startRow, col, roundKey, roundIdx, ctx){
   const st = getState(m);
   let hs = "", as_ = "", hWin = false, aWin = false;
   if(st.score){
@@ -852,11 +894,17 @@ function bracketCard(m, span, startRow, col){
   const timeStr = m.time.replace("+1"," +1");
   const isLive = st.phase === "live";
   const penNote = st.pens && st.pensScore ? `<span style="color:var(--muted);">·${st.pensScore}s</span>` : (st.aet ? `<span style="color:var(--muted);">·efö</span>` : "");
-  const shortH = shortName(m.h), shortA = shortName(m.a);
-  const flagH = FLAGS[m.h] || "", flagA = FLAGS[m.a] || "";
+
+  const hReal = isRealTeam(m.h), aReal = isRealTeam(m.a);
+  const topRow = hReal
+    ? renderSideRow([m.h], hs, hWin, false)
+    : renderSideRow(possibleTop(roundKey, roundIdx, ctx), "", false, true);
+  const botRow = aReal
+    ? renderSideRow([m.a], as_, aWin, false)
+    : renderSideRow(possibleBottom(roundKey, roundIdx, ctx), "", false, true);
+
   return `<div class="bmini${isLive?' live':''}" style="grid-column:${col};grid-row:${startRow} / span ${span};">
-    <div class="brow${hWin?' win':''}"><span class="flag">${flagH}</span><span class="code">${shortH}</span><span class="sc">${hs}</span></div>
-    <div class="brow${aWin?' win':''}"><span class="flag">${flagA}</span><span class="code">${shortA}</span><span class="sc">${as_}</span></div>
+    ${topRow}${botRow}
     <div class="bmeta"><span>${dateStr} ${timeStr}</span>${yleTag}${penNote}</div>
   </div>`;
 }
@@ -877,26 +925,19 @@ function renderBracket(){
   const sf  = knockouts.slice(i, i+2);  i += 2;
   const bronze = knockouts[i]; i++;
   const final  = knockouts[i];
+  const ctx = { r32, r16, qf, sf, f: final ? [final] : [] };
 
-  // Column labels
-  const labels = ["Sextondelsfinal","Åttondelsfinal","Kvartsfinal","Semifinal","Final"]
-    .map((l,idx) => `<div class="bcol-label" style="grid-column:${idx+1};grid-row:1">${l}</div>`).join("");
-
-  // R32 matches: 1 row each, occupy col 1 rows 1..16
-  // Note: bcol-label lives in row 1; matches start at row 1 but align-self: center = they sit centered per row
-  // But we want R32 matches to actually take rows below the labels. Easiest: labels sit above the grid.
-  // Reworking: grid has rows 1-16 (each 40px); labels are in a header outside.
-  const r32html = r32.map((m,idx) => bracketCard(m, 1, idx+1, 1)).join("");
-  const r16html = r16.map((m,idx) => bracketCard(m, 2, idx*2+1, 2)).join("");
-  const qfhtml  = qf .map((m,idx) => bracketCard(m, 4, idx*4+1, 3)).join("");
-  const sfhtml  = sf .map((m,idx) => bracketCard(m, 8, idx*8+1, 4)).join("");
-  const finhtml = final ? bracketCard(final, 16, 1, 5) : "";
+  const r32html = r32.map((m,idx) => bracketCard(m, 1, idx+1, 1, 'r32', idx, ctx)).join("");
+  const r16html = r16.map((m,idx) => bracketCard(m, 2, idx*2+1, 2, 'r16', idx, ctx)).join("");
+  const qfhtml  = qf .map((m,idx) => bracketCard(m, 4, idx*4+1, 3, 'qf',  idx, ctx)).join("");
+  const sfhtml  = sf .map((m,idx) => bracketCard(m, 8, idx*8+1, 4, 'sf',  idx, ctx)).join("");
+  const finhtml = final ? bracketCard(final, 16, 1, 5, 'f', 0, ctx) : "";
 
   const headerLabels = ["Sextondelsfinal","Åttondelsfinal","Kvartsfinal","Semifinal","Final"]
     .map(l => `<div style="text-align:center;font-size:10px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);padding:0 0 8px;">${l}</div>`).join("");
   const headerRow = `<div style="display:grid;grid-template-columns:repeat(5, 132px);column-gap:14px;min-width:716px;">${headerLabels}</div>`;
 
-  const bronzeHTML = bronze ? `<div class="bracket-bronze"><h3>Bronsmatch</h3>${bracketCard(bronze, 1, 1, 1).replace(/style="[^"]*"/,'style="grid-column:1;grid-row:1"')}</div>` : "";
+  const bronzeHTML = bronze ? `<div class="bracket-bronze"><h3>Bronsmatch</h3>${bracketCard(bronze, 1, 1, 1, 'f', 0, ctx).replace(/style="[^"]*"/,'style="grid-column:1;grid-row:1"')}</div>` : "";
 
   root.innerHTML = `
     <p class="bracket-hint">Svep i sidled om trädet inte får plats. Vinnare i orange. YLE-taggade sänds fritt på Yle TV2 / Areena.</p>
