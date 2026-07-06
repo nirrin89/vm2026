@@ -173,7 +173,7 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .team-link{background:none;border:0;padding:0;margin:0;color:inherit;font:inherit;cursor:pointer;text-align:left;}
 .team-link:hover{color:var(--today-accent);}
 .team-link.is-german{font-weight:500;}
-.team-link.is-german .flag{margin-right:4px;}
+.team-link .flag{margin-right:5px;font-size:0.95em;}
 .row.has-german{border-left:2px solid var(--today-accent);padding-left:8px;margin-left:-10px;}
 .team-page-head{display:flex;align-items:center;gap:10px;margin:0 0 18px;}
 .team-page-head button.back{background:none;border:0.5px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--text);font:inherit;font-size:13px;}
@@ -189,6 +189,15 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .scorer-goals{font-variant-numeric:tabular-nums;font-weight:500;}
 .scorer-goals .label{font-size:11px;font-weight:400;color:var(--muted);margin-left:4px;}
 .scorer-loading{padding:16px 0;font-size:13px;color:var(--muted);text-align:center;}
+.bracket-round{margin-top:22px;}
+.bracket-round:first-child{margin-top:6px;}
+.bracket-round h3{font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--text);margin:0 0 4px;padding-bottom:6px;border-bottom:0.5px solid var(--border);}
+.bmatch{display:grid;grid-template-columns:56px 1fr auto;gap:12px;align-items:center;padding:9px 0;border-bottom:0.5px solid var(--border);font-size:13px;}
+.bmatch .t{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;}
+.bmatch .t .d{display:block;font-size:10px;color:var(--faint);}
+.bmatch .teams{display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+.bmatch .vs{color:var(--faint);font-size:11px;}
+.bmatch .yle-tag{font-size:9px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--yle);background:var(--yle-bg);padding:1px 5px;border-radius:3px;margin-left:2px;}
 </style>
 </head>
 <body>
@@ -207,6 +216,7 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
     <button class="tab" data-f="today">Idag</button>
     <button class="tab" data-f="all">Alla</button>
     <button class="tab" data-f="grupper">Grupper</button>
+    <button class="tab" data-f="slutspel">Slutspel</button>
     <button class="tab" data-f="skyttar">Målskyttar</button>
   </div>
   <div class="legend" id="legend"><span class="yle-key">yle</span> = sänds på YLE TV2 / Yle Arenan</div>
@@ -282,6 +292,40 @@ let liveOk = false;
 const TEAM_GROUPS = {};
 M.forEach(m => { if(/^[A-L]$/.test(m.g)){ TEAM_GROUPS[m.h]=m.g; TEAM_GROUPS[m.a]=m.g; } });
 
+// Country flags for every team in the tournament
+const FLAGS = {
+  "Mexiko":"🇲🇽","Sydafrika":"🇿🇦","Kanada":"🇨🇦","Bosnien-Hercegovina":"🇧🇦","USA":"🇺🇸","Paraguay":"🇵🇾",
+  "Schweiz":"🇨🇭","Qatar":"🇶🇦","Brasilien":"🇧🇷","Marocko":"🇲🇦","Haiti":"🇭🇹","Australien":"🇦🇺","Turkiet":"🇹🇷",
+  "Tyskland":"🇩🇪","Curaçao":"🇨🇼","Nederländerna":"🇳🇱","Japan":"🇯🇵","Elfenbenskusten":"🇨🇮","Ecuador":"🇪🇨",
+  "Sverige":"🇸🇪","Tunisien":"🇹🇳","Spanien":"🇪🇸","Kap Verde":"🇨🇻","Belgien":"🇧🇪","Egypten":"🇪🇬",
+  "Saudiarabien":"🇸🇦","Uruguay":"🇺🇾","Iran":"🇮🇷","Nya Zeeland":"🇳🇿","Frankrike":"🇫🇷","Senegal":"🇸🇳",
+  "Irak":"🇮🇶","Norge":"🇳🇴","Argentina":"🇦🇷","Algeriet":"🇩🇿","Österrike":"🇦🇹","Jordanien":"🇯🇴",
+  "Portugal":"🇵🇹","DR Kongo":"🇨🇩","Kroatien":"🇭🇷","Ghana":"🇬🇭","Panama":"🇵🇦","Uzbekistan":"🇺🇿",
+  "Colombia":"🇨🇴","Tjeckien":"🇨🇿","Sydkorea":"🇰🇷",
+  "England":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","Skottland":"🏴󠁧󠁢󠁳󠁣󠁴󠁿"
+};
+
+// Authoritative YLE broadcasts from Yle's own knockout schedule articles (74-20234856, 74-20233760)
+// Overrides the day-parity heuristic for individual knockout matches
+const YLE_KNOCKOUT = new Set([
+  // Round of 32
+  pairKey("South Africa","Canada"), pairKey("Netherlands","Morocco"), pairKey("Ivory Coast","Norway"),
+  pairKey("France","Sweden"), pairKey("Mexico","Ecuador"), pairKey("Spain","Austria"),
+  pairKey("Portugal","Croatia"), pairKey("Switzerland","Algeria"),
+  // Round of 16
+  pairKey("Brazil","Norway"), pairKey("Mexico","England"), pairKey("Argentina","Egypt"),
+  pairKey("Switzerland","Colombia")
+]);
+const MTV_KNOCKOUT = new Set([
+  // Round of 32
+  pairKey("Brazil","Japan"), pairKey("Germany","Paraguay"), pairKey("England","DR Congo"),
+  pairKey("Belgium","Senegal"), pairKey("United States","Bosnia and Herzegovina"),
+  pairKey("Australia","Egypt"), pairKey("Argentina","Cape Verde"), pairKey("Colombia","Ghana"),
+  // Round of 16
+  pairKey("Canada","Morocco"), pairKey("Paraguay","France"), pairKey("Portugal","Spain"),
+  pairKey("United States","Belgium")
+]);
+
 async function fetchOneDay(d){
   // one retry — the free API sometimes drops a connection
   for(let attempt=0; attempt<2; attempt++){
@@ -306,6 +350,13 @@ function mergeLiveFromEvent(ev){
 
 function buildTeamGroups(){ return TEAM_GROUPS; }
 
+function broadcasterFor(dateStr, hSV, aSV){
+  const key = pairKey(SV2EN[hSV]||hSV, SV2EN[aSV]||aSV);
+  if(YLE_KNOCKOUT.has(key)) return 'YLE';
+  if(MTV_KNOCKOUT.has(key)) return 'MTV';
+  return (parseInt(dateStr.slice(8,10),10) % 2 === 0) ? 'YLE' : 'MTV';    // fallback for group games
+}
+
 function buildFromEspn(ev, hSV, aSV, t2g){
   if(!ev.date) return null;
   const dt = new Date(ev.date);                    // ESPN gives ISO 8601 UTC
@@ -321,7 +372,7 @@ function buildFromEspn(ev, hSV, aSV, t2g){
     g: (t2g[hSV] && t2g[hSV] === t2g[aSV]) ? t2g[hSV] : '–',   // only tag as group X when BOTH teams are in group X
     h: hSV, a: aSV,
     s: null,
-    b: (parseInt(etDate.slice(8,10),10) % 2 === 0) ? 'YLE' : 'MTV'
+    b: broadcasterFor(etDate, hSV, aSV)
   };
 }
 
@@ -572,7 +623,8 @@ function statusCell(st){
 
 function teamSpan(name){
   const isGer = name === "Tyskland";
-  const flag = isGer ? `<span class="flag">🇩🇪</span>` : "";
+  const emoji = FLAGS[name] || "";
+  const flag = emoji ? `<span class="flag">${emoji}</span>` : "";
   return `<button class="team-link${isGer?' is-german':''}" data-team="${name}">${flag}${name}</button>`;
 }
 
@@ -653,7 +705,7 @@ function render(){
     return;
   }
   if(controls) controls.style.display = "";
-  const isFullScreen = F === "grupper" || F === "skyttar";
+  const isFullScreen = F === "grupper" || F === "skyttar" || F === "slutspel";
   if(legend) legend.style.display = isFullScreen ? "none" : "";
   if(foot) foot.style.display = isFullScreen ? "none" : "";
   const playedEl = document.getElementById("played");
@@ -670,6 +722,10 @@ function render(){
     if(legend) legend.style.display = "none";
     if(foot) foot.style.display = "none";
     renderScorers();
+  } else if(F === "slutspel"){
+    if(legend) legend.style.display = "none";
+    if(foot) foot.style.display = "none";
+    renderBracket();
   } else {
     renderSchedule();
   }
@@ -752,6 +808,46 @@ function renderGroups(){
   }).join("");
   root.innerHTML = `<div class="groups">${cards}</div>
     <p class="footnote" style="margin-top:20px;">S = spelade, MS = målskillnad, P = poäng. <span style="color:#2ca05a;">●</span> går vidare (topp 2 + 8 bästa treor). <span style="color:var(--today-accent);">●</span> spelar just nu — live-resultat räknas med.</p>`;
+}
+
+// --- Knockout bracket — buckets by schedule position (works even when placeholder team names haven't resolved) ---
+const KNOCKOUT_ROUNDS = [
+  { key:'r32', label:'Sextondelsfinal',        count:16 },
+  { key:'r16', label:'Åttondelsfinal',         count:8  },
+  { key:'qf',  label:'Kvartsfinal',            count:4  },
+  { key:'sf',  label:'Semifinal',              count:2  },
+  { key:'br',  label:'Bronsmatch',             count:1  },
+  { key:'fin', label:'Final',                  count:1  },
+];
+
+function renderBracket(){
+  const root = document.getElementById("sched");
+  const knockouts = M
+    .filter(m => m.date >= "2026-06-28")
+    .sort((a,b) => kickoffDate(a) - kickoffDate(b));
+  if(!knockouts.length){
+    root.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:14px 0;">Slutspelet har inte börjat än.</p>`;
+    return;
+  }
+  let i = 0;
+  const sections = KNOCKOUT_ROUNDS.map(r => {
+    const games = knockouts.slice(i, i + r.count);
+    i += r.count;
+    if(!games.length) return "";
+    const rows = games.map(m => {
+      const yleTag = m.b==="YLE" ? `<span class="yle-tag">yle</span>` : "";
+      const st = getState(m);
+      const dd = m.date.split("-");
+      const dateStr = `${parseInt(dd[2])}.${parseInt(dd[1])}.`;
+      return `<div class="bmatch">
+        <span class="t">${m.time.replace("+1"," +1")}<span class="d">${dateStr}</span></span>
+        <span class="teams">${teamSpan(m.h)}<span class="vs">–</span>${teamSpan(m.a)}${yleTag}</span>
+        ${statusCell(st)}
+      </div>`;
+    }).join("");
+    return `<div class="bracket-round"><h3>${r.label}</h3>${rows}</div>`;
+  }).join("");
+  root.innerHTML = sections + `<p class="footnote" style="margin-top:20px;">Slutspelet omfattar 32 matcher. YLE-taggade matcher sänds gratis på Yle TV2 / Areena.</p>`;
 }
 
 // --- Top scorers — fetched lazily from ESPN match summaries; cached in memory ---
