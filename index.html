@@ -216,7 +216,8 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .tail-block{display:flex;flex-direction:column;align-items:center;}
 .tail-block h3{font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--text);margin:0 0 6px;display:flex;align-items:center;gap:6px;}
 .tail-block .bmini{width:100%;max-width:260px;position:relative;}
-.tail-final .trophy{font-size:22px;line-height:1;}
+.tail-final .trophy{display:inline-flex;vertical-align:middle;line-height:0;}
+.tail-final .trophy svg{width:26px;height:38px;}
 .tail-final h3{color:var(--today-accent);}
 .tail-final .bmini{border-color:var(--today-accent);}
 </style>
@@ -844,6 +845,35 @@ function renderGroups(){
     <p class="footnote" style="margin-top:20px;">S = spelade, MS = målskillnad, P = poäng. <span style="color:#2ca05a;">●</span> går vidare (topp 2 + 8 bästa treor). <span style="color:var(--today-accent);">●</span> spelar just nu — live-resultat räknas med.</p>`;
 }
 
+// Stylized FIFA World Cup Trophy — golden globe on curved body, malachite base with two green rings
+const TROPHY_SVG = `<svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg" aria-label="VM-pokalen">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7d264"/><stop offset="0.5" stop-color="#d69f18"/><stop offset="1" stop-color="#a26f04"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#26804a"/><stop offset="1" stop-color="#0f3d21"/>
+    </linearGradient>
+  </defs>
+  <!-- body: curved arms sweeping up to hold the globe -->
+  <path d="M30 54 C24 76 34 96 44 106 L56 106 C66 96 76 76 70 54 C62 60 55 55 50 50 C45 55 38 60 30 54 Z"
+        fill="url(#gold)" stroke="#7a5808" stroke-width="1"/>
+  <!-- globe -->
+  <circle cx="50" cy="30" r="22" fill="url(#gold)" stroke="#7a5808" stroke-width="1.2"/>
+  <ellipse cx="50" cy="30" rx="22" ry="7" fill="none" stroke="#7a5808" stroke-width="0.9"/>
+  <line x1="50" y1="8" x2="50" y2="52" stroke="#7a5808" stroke-width="0.9"/>
+  <!-- neck -->
+  <path d="M42 106 L58 106 L60 112 L40 112 Z" fill="#c5941a" stroke="#7a5808" stroke-width="0.8"/>
+  <!-- upper malachite ring -->
+  <rect x="30" y="112" width="40" height="8" fill="url(#green)" stroke="#0d3d1f" stroke-width="0.5"/>
+  <!-- gold band -->
+  <rect x="28" y="120" width="44" height="2" fill="#c5941a"/>
+  <!-- lower malachite ring -->
+  <rect x="28" y="122" width="44" height="10" fill="url(#green)" stroke="#0d3d1f" stroke-width="0.5"/>
+  <!-- base plate -->
+  <rect x="26" y="132" width="48" height="3" fill="#8b6410"/>
+</svg>`;
+
 // --- Knockout bracket — visual grid tree with matches positioned round by round ---
 function shortName(sv){ return SHORT[sv] || sv.slice(0,3).toUpperCase(); }
 function isRealTeam(name){ return !!FLAGS[name]; }
@@ -964,7 +994,7 @@ function renderBracket(){
     ? `<div class="tail-block tail-bronze"><h3>Bronsmatch</h3>${cleanCardStyle(bracketCard(bronze, 1, 1, 1, 'bronze', 0, ctx))}</div>`
     : "";
   const finalHTML = final
-    ? `<div class="tail-block tail-final"><h3><span class="trophy">🏆</span>Final</h3>${cleanCardStyle(bracketCard(final, 1, 1, 1, 'f', 0, ctx))}</div>`
+    ? `<div class="tail-block tail-final"><h3><span class="trophy">${TROPHY_SVG}</span>Final</h3>${cleanCardStyle(bracketCard(final, 1, 1, 1, 'f', 0, ctx))}</div>`
     : "";
   const tailHTML = (bronze || final) ? `<div class="bracket-tail">${finalHTML}${bronzeHTML}</div>` : "";
 
