@@ -209,6 +209,8 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .mtv-tag{font-size:10px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--mtv);background:rgba(239,159,39,0.12);padding:1px 5px;border-radius:3px;margin-left:2px;}
 @media (prefers-color-scheme: dark){ .mtv-tag{background:rgba(239,159,39,0.18);} }
 .bmini.live{border-color:var(--today-accent);}
+.bmini.done{opacity:0.55;}
+.bmini.done .brow.win{opacity:1;color:var(--today-accent);}
 .bracket-tail{margin-top:20px;padding-top:16px;border-top:0.5px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 @media (max-width: 480px){ .bracket-tail{grid-template-columns:1fr;} }
 .tail-block{display:flex;flex-direction:column;align-items:center;}
@@ -918,7 +920,8 @@ function bracketCard(m, span, startRow, col, roundKey, roundIdx, ctx){
     ? renderSideRow([m.a], as_, aWin, false)
     : renderSideRow(possibleBottom(roundKey, roundIdx, ctx), "", false, true);
 
-  return `<div class="bmini${isLive?' live':''}" data-round="${roundKey}" data-idx="${roundIdx}" data-pair-side="${roundIdx % 2 === 0 ? 'top' : 'bottom'}" style="grid-column:${col};grid-row:${startRow} / span ${span};">
+  const isDone = st.phase === "fin";
+  return `<div class="bmini${isLive?' live':''}${isDone?' done':''}" data-round="${roundKey}" data-idx="${roundIdx}" data-pair-side="${roundIdx % 2 === 0 ? 'top' : 'bottom'}" style="grid-column:${col};grid-row:${startRow} / span ${span};">
     ${topRow}${botRow}
     <div class="bmeta"><span>${dateStr} ${timeStr}</span>${bcastTag}${penNote}</div>
   </div>`;
