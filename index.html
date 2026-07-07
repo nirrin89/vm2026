@@ -191,7 +191,7 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .scorer-loading{padding:16px 0;font-size:13px;color:var(--muted);text-align:center;}
 .bracket-hint{font-size:11px;color:var(--faint);margin:0 0 8px;}
 .bracket-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -20px;padding:6px 20px 12px;}
-.bracket-tree{display:grid;grid-template-columns:132px 132px 132px 132px 132px;grid-template-rows:repeat(16, 62px);column-gap:28px;row-gap:0;min-width:772px;position:relative;}
+.bracket-tree{display:grid;grid-template-columns:132px 132px 132px 132px;grid-template-rows:repeat(16, 62px);column-gap:28px;row-gap:0;min-width:612px;position:relative;}
 .bracket-tree > svg.connectors{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;}
 .bracket-tree > .bmini{z-index:1;}
 .bcol-label{grid-row:1;text-align:center;font-size:10px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);padding-bottom:6px;border-bottom:0.5px solid var(--border);}
@@ -207,9 +207,14 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .mtv-tag{font-size:10px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--mtv);background:rgba(239,159,39,0.12);padding:1px 5px;border-radius:3px;margin-left:2px;}
 @media (prefers-color-scheme: dark){ .mtv-tag{background:rgba(239,159,39,0.18);} }
 .bmini.live{border-color:var(--today-accent);}
-.bracket-bronze{margin-top:22px;padding-top:14px;border-top:0.5px solid var(--border);}
-.bracket-bronze h3{font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--text);margin:0 0 8px;}
-.bracket-bronze .bmini{max-width:260px;}
+.bracket-tail{margin-top:20px;padding-top:16px;border-top:0.5px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media (max-width: 480px){ .bracket-tail{grid-template-columns:1fr;} }
+.tail-block{display:flex;flex-direction:column;align-items:center;}
+.tail-block h3{font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--text);margin:0 0 6px;display:flex;align-items:center;gap:6px;}
+.tail-block .bmini{width:100%;max-width:260px;position:relative;}
+.tail-final .trophy{font-size:22px;line-height:1;}
+.tail-final h3{color:var(--today-accent);}
+.tail-final .bmini{border-color:var(--today-accent);}
 </style>
 </head>
 <body>
@@ -288,7 +293,7 @@ const SV2EN = {
   "Jordanien":"Jordan","Portugal":"Portugal","DR Kongo":"DR Congo","England":"England","Kroatien":"Croatia",
   "Ghana":"Ghana","Panama":"Panama","Uzbekistan":"Uzbekistan","Colombia":"Colombia","Tjeckien":"Czechia","Sydkorea":"South Korea"
 };
-function norm(s){return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z]/g,"");}
+function norm(s){return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]/g,"");}
 const ALIAS = {"caboverde":"capeverde","cotedivoire":"ivorycoast","korearepublic":"southkorea",
   "republicofkorea":"southkorea","czechrepublic":"czechia","unitedstates":"usa","usmnt":"usa",
   "congodr":"drcongo","drcongo":"drcongo","democraticrepublicofthecongo":"drcongo","turkiye":"turkey",
@@ -375,6 +380,7 @@ function mergeLiveFromEvent(ev){
 function buildTeamGroups(){ return TEAM_GROUPS; }
 
 function broadcasterFor(dateStr, hSV, aSV){
+  if(dateStr === "2026-07-19") return "YLE";           // Final is on YLE (confirmed by Yle)
   const key = pairKey(SV2EN[hSV]||hSV, SV2EN[aSV]||aSV);
   if(YLE_KNOCKOUT.has(key)) return 'YLE';
   if(MTV_KNOCKOUT.has(key)) return 'MTV';
@@ -857,10 +863,12 @@ function possibleTeamsForCell(round, idx, ctx){
   ];
 }
 function possibleTop(round, idx, ctx){
+  if(round === 'bronze') return possibleTeamsForCell('sf', 0, ctx);   // Bronze fed by SF losers
   const ri = CHAIN.indexOf(round); if(ri === 0) return [];
   return possibleTeamsForCell(CHAIN[ri - 1], idx * 2,     ctx);
 }
 function possibleBottom(round, idx, ctx){
+  if(round === 'bronze') return possibleTeamsForCell('sf', 1, ctx);
   const ri = CHAIN.indexOf(round); if(ri === 0) return [];
   return possibleTeamsForCell(CHAIN[ri - 1], idx * 2 + 1, ctx);
 }
@@ -872,10 +880,10 @@ function renderSideRow(teams, score, isWin, isTBD){
     return `<div class="brow${isWin?' win':''}"><span class="flag">${FLAGS[t]||''}</span><span class="code">${shortName(t)}</span><span class="sc">${score}</span></div>`;
   }
   // Multiple possible feeders — show them with a slash-separated compact list
-  const parts = teams.slice(0, 6).map(t =>
+  const parts = teams.slice(0, 4).map(t =>
     `<span class="flag">${FLAGS[t]||''}</span><span class="code">${shortName(t)}</span>`
   ).join(`<span style="color:var(--faint);margin:0 3px;">·</span>`);
-  const more = teams.length > 6 ? `<span style="color:var(--faint);"> +${teams.length-6}</span>` : '';
+  const more = teams.length > 4 ? `<span style="color:var(--faint);"> +${teams.length-4}</span>` : '';
   return `<div class="brow tbd">${parts}${more}</div>`;
 }
 
@@ -923,26 +931,37 @@ function renderBracket(){
     root.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:14px 0;">Slutspelet har inte börjat än.</p>`;
     return;
   }
+  // Bronze and Final pulled by date (avoid mis-slicing when ESPN has fewer knockout fixtures)
+  const bronze = knockouts.find(m => m.date === "2026-07-18");
+  const final  = knockouts.find(m => m.date === "2026-07-19");
+  const tree   = knockouts.filter(m => m !== bronze && m !== final);
   let i = 0;
-  const r32 = knockouts.slice(i, i+16); i += 16;
-  const r16 = knockouts.slice(i, i+8);  i += 8;
-  const qf  = knockouts.slice(i, i+4);  i += 4;
-  const sf  = knockouts.slice(i, i+2);  i += 2;
-  const bronze = knockouts[i]; i++;
-  const final  = knockouts[i];
+  const r32 = tree.slice(i, i+16); i += 16;
+  const r16 = tree.slice(i, i+8);  i += 8;
+  const qf  = tree.slice(i, i+4);  i += 4;
+  const sf  = tree.slice(i, i+2);  i += 2;
   const ctx = { r32, r16, qf, sf, f: final ? [final] : [] };
 
   const r32html = r32.map((m,idx) => bracketCard(m, 1, idx+1, 1, 'r32', idx, ctx)).join("");
   const r16html = r16.map((m,idx) => bracketCard(m, 2, idx*2+1, 2, 'r16', idx, ctx)).join("");
   const qfhtml  = qf .map((m,idx) => bracketCard(m, 4, idx*4+1, 3, 'qf',  idx, ctx)).join("");
   const sfhtml  = sf .map((m,idx) => bracketCard(m, 8, idx*8+1, 4, 'sf',  idx, ctx)).join("");
-  const finhtml = final ? bracketCard(final, 16, 1, 5, 'f', 0, ctx) : "";
+  // Final is rendered separately in the tail block below (with trophy), not in the tree
+  const finhtml = "";
 
-  const headerLabels = ["Sextondelsfinal","Åttondelsfinal","Kvartsfinal","Semifinal","Final"]
+  const headerLabels = ["Sextondelsfinal","Åttondelsfinal","Kvartsfinal","Semifinal"]
     .map(l => `<div style="text-align:center;font-size:10px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);padding:0 0 8px;">${l}</div>`).join("");
-  const headerRow = `<div style="display:grid;grid-template-columns:repeat(5, 132px);column-gap:28px;min-width:772px;">${headerLabels}</div>`;
+  const headerRow = `<div style="display:grid;grid-template-columns:repeat(4, 132px);column-gap:28px;min-width:612px;">${headerLabels}</div>`;
 
-  const bronzeHTML = bronze ? `<div class="bracket-bronze"><h3>Bronsmatch</h3>${bracketCard(bronze, 1, 1, 1, 'f', 0, ctx).replace(/style="[^"]*"/,'style="grid-column:1;grid-row:1"')}</div>` : "";
+  // Strip the inline grid style from bronze/final cards since they render outside the tree
+  const cleanCardStyle = html => html.replace(/style="grid-column:[^"]*"/, '');
+  const bronzeHTML = bronze
+    ? `<div class="tail-block tail-bronze"><h3>Bronsmatch</h3>${cleanCardStyle(bracketCard(bronze, 1, 1, 1, 'bronze', 0, ctx))}</div>`
+    : "";
+  const finalHTML = final
+    ? `<div class="tail-block tail-final"><h3><span class="trophy">🏆</span>Final</h3>${cleanCardStyle(bracketCard(final, 1, 1, 1, 'f', 0, ctx))}</div>`
+    : "";
+  const tailHTML = (bronze || final) ? `<div class="bracket-tail">${finalHTML}${bronzeHTML}</div>` : "";
 
   root.innerHTML = `
     <p class="bracket-hint">Svep i sidled om trädet inte får plats. Vinnare i orange. <span class="yle-tag">yle</span> = Yle TV2/Areena, <span class="mtv-tag">mtv</span> = MTV3/Katsomo+.</p>
@@ -950,10 +969,11 @@ function renderBracket(){
       ${headerRow}
       <div class="bracket-tree">${r32html}${r16html}${qfhtml}${sfhtml}${finhtml}</div>
     </div>
-    ${bronzeHTML}
+    ${tailHTML}
   `;
-  // Draw connecting lines between paired matches → next-round match
-  requestAnimationFrame(drawBracketConnectors);
+  // Draw connecting lines after layout has settled
+  requestAnimationFrame(() => requestAnimationFrame(drawBracketConnectors));
+  setTimeout(drawBracketConnectors, 120);   // re-draw in case first pass was pre-layout
 }
 
 function drawBracketConnectors(){
