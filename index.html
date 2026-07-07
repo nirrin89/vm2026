@@ -191,7 +191,9 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .scorer-loading{padding:16px 0;font-size:13px;color:var(--muted);text-align:center;}
 .bracket-hint{font-size:11px;color:var(--faint);margin:0 0 8px;}
 .bracket-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -20px;padding:6px 20px 12px;}
-.bracket-tree{display:grid;grid-template-columns:132px 132px 132px 132px 132px;grid-template-rows:repeat(16, 62px);column-gap:14px;row-gap:0;min-width:716px;}
+.bracket-tree{display:grid;grid-template-columns:132px 132px 132px 132px 132px;grid-template-rows:repeat(16, 62px);column-gap:28px;row-gap:0;min-width:772px;position:relative;}
+.bracket-tree > svg.connectors{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;}
+.bracket-tree > .bmini{z-index:1;}
 .bcol-label{grid-row:1;text-align:center;font-size:10px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);padding-bottom:6px;border-bottom:0.5px solid var(--border);}
 .bmini{align-self:center;border:0.5px solid var(--border);border-radius:6px;padding:5px 7px;background:var(--surface);font-size:11px;line-height:1.4;min-width:0;position:relative;}
 .bmini .brow{display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;}
@@ -200,7 +202,10 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .bmini .brow .code{flex:1;overflow:hidden;text-overflow:ellipsis;}
 .bmini .brow .sc{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:500;color:var(--text);}
 .bmini .bmeta{font-size:9px;color:var(--faint);letter-spacing:0.05em;margin-top:2px;display:flex;gap:5px;align-items:center;}
-.bmini .bmeta .yle-tag{font-size:8px;padding:1px 4px;border-radius:2px;letter-spacing:0.05em;}
+.bmini .bmeta .yle-tag,
+.bmini .bmeta .mtv-tag{font-size:8px;padding:1px 4px;border-radius:2px;letter-spacing:0.05em;}
+.mtv-tag{font-size:10px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--mtv);background:rgba(239,159,39,0.12);padding:1px 5px;border-radius:3px;margin-left:2px;}
+@media (prefers-color-scheme: dark){ .mtv-tag{background:rgba(239,159,39,0.18);} }
 .bmini.live{border-color:var(--today-accent);}
 .bracket-bronze{margin-top:22px;padding-top:14px;border-top:0.5px solid var(--border);}
 .bracket-bronze h3{font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--text);margin:0 0 8px;}
@@ -686,7 +691,7 @@ function renderTeamPage(team){
   const keys = Object.keys(by).sort();
   const days = keys.map(d => {
     const list = by[d].map(m => {
-      const yleTag = m.b==="YLE" ? `<span class="yle-tag">yle</span>` : "";
+      const yleTag = m.b==="YLE" ? `<span class="yle-tag">yle</span>` : (m.b==="MTV" ? `<span class="mtv-tag">mtv</span>` : "");
       const st = getState(m);
       const isLive = st.phase === "live";
       const hasGer = m.h === "Tyskland" || m.a === "Tyskland";
@@ -889,7 +894,7 @@ function bracketCard(m, span, startRow, col, roundKey, roundIdx, ctx){
       }
     }
   }
-  const yleTag = m.b === "YLE" ? `<span class="yle-tag">yle</span>` : "";
+  const bcastTag = m.b === "YLE" ? `<span class="yle-tag">yle</span>` : (m.b === "MTV" ? `<span class="mtv-tag">mtv</span>` : "");
   const dd = m.date.split("-"); const dateStr = `${parseInt(dd[2])}.${parseInt(dd[1])}.`;
   const timeStr = m.time.replace("+1"," +1");
   const isLive = st.phase === "live";
@@ -903,9 +908,9 @@ function bracketCard(m, span, startRow, col, roundKey, roundIdx, ctx){
     ? renderSideRow([m.a], as_, aWin, false)
     : renderSideRow(possibleBottom(roundKey, roundIdx, ctx), "", false, true);
 
-  return `<div class="bmini${isLive?' live':''}" style="grid-column:${col};grid-row:${startRow} / span ${span};">
+  return `<div class="bmini${isLive?' live':''}" data-round="${roundKey}" data-idx="${roundIdx}" data-pair-side="${roundIdx % 2 === 0 ? 'top' : 'bottom'}" style="grid-column:${col};grid-row:${startRow} / span ${span};">
     ${topRow}${botRow}
-    <div class="bmeta"><span>${dateStr} ${timeStr}</span>${yleTag}${penNote}</div>
+    <div class="bmeta"><span>${dateStr} ${timeStr}</span>${bcastTag}${penNote}</div>
   </div>`;
 }
 
@@ -935,19 +940,62 @@ function renderBracket(){
 
   const headerLabels = ["Sextondelsfinal","Åttondelsfinal","Kvartsfinal","Semifinal","Final"]
     .map(l => `<div style="text-align:center;font-size:10px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--faint);padding:0 0 8px;">${l}</div>`).join("");
-  const headerRow = `<div style="display:grid;grid-template-columns:repeat(5, 132px);column-gap:14px;min-width:716px;">${headerLabels}</div>`;
+  const headerRow = `<div style="display:grid;grid-template-columns:repeat(5, 132px);column-gap:28px;min-width:772px;">${headerLabels}</div>`;
 
   const bronzeHTML = bronze ? `<div class="bracket-bronze"><h3>Bronsmatch</h3>${bracketCard(bronze, 1, 1, 1, 'f', 0, ctx).replace(/style="[^"]*"/,'style="grid-column:1;grid-row:1"')}</div>` : "";
 
   root.innerHTML = `
-    <p class="bracket-hint">Svep i sidled om trädet inte får plats. Vinnare i orange. YLE-taggade sänds fritt på Yle TV2 / Areena.</p>
+    <p class="bracket-hint">Svep i sidled om trädet inte får plats. Vinnare i orange. <span class="yle-tag">yle</span> = Yle TV2/Areena, <span class="mtv-tag">mtv</span> = MTV3/Katsomo+.</p>
     <div class="bracket-wrap">
       ${headerRow}
       <div class="bracket-tree">${r32html}${r16html}${qfhtml}${sfhtml}${finhtml}</div>
     </div>
     ${bronzeHTML}
   `;
+  // Draw connecting lines between paired matches → next-round match
+  requestAnimationFrame(drawBracketConnectors);
 }
+
+function drawBracketConnectors(){
+  const tree = document.querySelector('.bracket-tree');
+  if(!tree) return;
+  const cards = [...tree.querySelectorAll('.bmini')];
+  if(!cards.length) return;
+  const treeRect = tree.getBoundingClientRect();
+  const byCol = {};
+  cards.forEach(c => {
+    const col = parseInt(c.style.gridColumn, 10);
+    (byCol[col] = byCol[col] || []).push(c);
+  });
+  const cardCenter = c => {
+    const r = c.getBoundingClientRect();
+    return { x1: r.left - treeRect.left, x2: r.right - treeRect.left, y: r.top - treeRect.top + r.height/2 };
+  };
+  const paths = [];
+  for(let col = 1; col <= 4; col++){
+    const curr = byCol[col] || [];
+    const next = byCol[col + 1] || [];
+    for(let i = 0; i < curr.length; i++){
+      const nc = next[Math.floor(i/2)];
+      if(!nc) continue;
+      const a = cardCenter(curr[i]);
+      const b = cardCenter(nc);
+      const midX = a.x2 + (b.x1 - a.x2) / 2;
+      // Right-angle path: card right → mid gap x, then vertical, then to next card left
+      paths.push(`M ${a.x2} ${a.y} H ${midX} V ${b.y} H ${b.x1}`);
+    }
+  }
+  const w = tree.scrollWidth, h = tree.scrollHeight;
+  const svg = `<svg class="connectors" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" preserveAspectRatio="none">
+    ${paths.map(d => `<path d="${d}" stroke="rgba(180,180,180,0.35)" stroke-width="1" fill="none" shape-rendering="crispEdges"/>`).join('')}
+  </svg>`;
+  const existing = tree.querySelector(':scope > svg.connectors');
+  if(existing) existing.remove();
+  tree.insertAdjacentHTML('afterbegin', svg);
+}
+window.addEventListener('resize', () => {
+  if(F === 'slutspel') drawBracketConnectors();
+});
 
 // --- Top scorers — fetched lazily from ESPN match summaries; cached in memory ---
 const scorerCache = {};   // eventId -> [{ player, team, ownGoal }]
@@ -1038,7 +1086,7 @@ function renderSchedule(){
   root.innerHTML = keys.map(d=>{
     const isToday = d===TODAY;
     const list = by[d].map(m=>{
-      const yleTag = m.b==="YLE" ? `<span class="yle-tag">yle</span>` : "";
+      const yleTag = m.b==="YLE" ? `<span class="yle-tag">yle</span>` : (m.b==="MTV" ? `<span class="mtv-tag">mtv</span>` : "");
       const st = getState(m);
       const isLive = st.phase === "live";
       const hasGer = m.h === "Tyskland" || m.a === "Tyskland";
