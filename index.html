@@ -217,7 +217,7 @@ h1{font-size:22px;font-weight:500;margin:0;letter-spacing:-0.01em;}
 .tail-block h3{font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--text);margin:0 0 6px;display:flex;align-items:center;gap:6px;}
 .tail-block .bmini{width:100%;max-width:260px;position:relative;}
 .tail-final .trophy{display:inline-flex;vertical-align:middle;line-height:0;}
-.tail-final .trophy svg{width:26px;height:38px;}
+.tail-final .trophy svg,.tail-final .trophy img{width:26px;height:auto;}
 .tail-final h3{color:var(--today-accent);}
 .tail-final .bmini{border-color:var(--today-accent);}
 </style>
@@ -845,34 +845,9 @@ function renderGroups(){
     <p class="footnote" style="margin-top:20px;">S = spelade, MS = målskillnad, P = poäng. <span style="color:#2ca05a;">●</span> går vidare (topp 2 + 8 bästa treor). <span style="color:var(--today-accent);">●</span> spelar just nu — live-resultat räknas med.</p>`;
 }
 
-// Stylized FIFA World Cup Trophy — golden globe on curved body, malachite base with two green rings
-const TROPHY_SVG = `<svg viewBox="0 0 100 140" xmlns="http://www.w3.org/2000/svg" aria-label="VM-pokalen">
-  <defs>
-    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f7d264"/><stop offset="0.5" stop-color="#d69f18"/><stop offset="1" stop-color="#a26f04"/>
-    </linearGradient>
-    <linearGradient id="green" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#26804a"/><stop offset="1" stop-color="#0f3d21"/>
-    </linearGradient>
-  </defs>
-  <!-- body: curved arms sweeping up to hold the globe -->
-  <path d="M30 54 C24 76 34 96 44 106 L56 106 C66 96 76 76 70 54 C62 60 55 55 50 50 C45 55 38 60 30 54 Z"
-        fill="url(#gold)" stroke="#7a5808" stroke-width="1"/>
-  <!-- globe -->
-  <circle cx="50" cy="30" r="22" fill="url(#gold)" stroke="#7a5808" stroke-width="1.2"/>
-  <ellipse cx="50" cy="30" rx="22" ry="7" fill="none" stroke="#7a5808" stroke-width="0.9"/>
-  <line x1="50" y1="8" x2="50" y2="52" stroke="#7a5808" stroke-width="0.9"/>
-  <!-- neck -->
-  <path d="M42 106 L58 106 L60 112 L40 112 Z" fill="#c5941a" stroke="#7a5808" stroke-width="0.8"/>
-  <!-- upper malachite ring -->
-  <rect x="30" y="112" width="40" height="8" fill="url(#green)" stroke="#0d3d1f" stroke-width="0.5"/>
-  <!-- gold band -->
-  <rect x="28" y="120" width="44" height="2" fill="#c5941a"/>
-  <!-- lower malachite ring -->
-  <rect x="28" y="122" width="44" height="10" fill="url(#green)" stroke="#0d3d1f" stroke-width="0.5"/>
-  <!-- base plate -->
-  <rect x="26" y="132" width="48" height="3" fill="#8b6410"/>
-</svg>`;
+// FIFA World Cup trophy icon — Wikimedia Commons SVG (CC BY-SA 3.0, Diesel1990)
+// https://commons.wikimedia.org/wiki/File:FIFA_World_Cup_Icon_(Campionato_mondiale_di_calcio).svg
+const TROPHY_SVG = `<img src="https://upload.wikimedia.org/wikipedia/commons/b/ba/FIFA_World_Cup_Icon_%28Campionato_mondiale_di_calcio%29.svg" alt="VM-pokalen" style="width:26px;height:auto;vertical-align:middle;" onerror="this.style.display='none'">`;
 
 // --- Knockout bracket — visual grid tree with matches positioned round by round ---
 function shortName(sv){ return SHORT[sv] || sv.slice(0,3).toUpperCase(); }
